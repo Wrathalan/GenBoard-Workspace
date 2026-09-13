@@ -115,6 +115,9 @@ export interface WorkspaceAPI {
   activateBoard(id: string): Promise<void>;
   importImages(files?: { name: string; bytes: Uint8Array }[]): Promise<Asset[]>;
   clipboardImage(): Promise<Asset | null>;
+  copyAssetImage(assetId: string): Promise<void>;
+  exportAsset(assetId: string): Promise<boolean>;
+  revealAsset(assetId: string): Promise<void>;
   saveStyle(style: string): Promise<void>;
   importWorkflow(): Promise<Template | null>;
   saveTemplate(template: Template): Promise<Template>;

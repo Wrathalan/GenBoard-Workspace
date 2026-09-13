@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -12,7 +12,8 @@ import {
 } from '@xyflow/react';
 import { ImageIcon, LoaderCircle, Lock } from 'lucide-react';
 import { useWorkspace, fail, flush } from './store';
-import type { CanvasItem, ItemData } from '../shared/types';
+import type { CanvasItem, ItemData, Point, Viewport } from '../shared/types';
+import { contextSelection, isRightDrag, type ContextTarget } from '../shared/context-menu';
 type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job'>;
 export const assetUrl = (id: string, original = false) =>
   `imagine://${id}/${original ? 'original' : 'thumbnail'}`;
@@ -51,6 +52,13 @@ const ImageNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
 });
 const TextNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
   const [editing, setEditing] = useState(false);
+  const editRequest = useWorkspace((s) => s.editRequest);
+  useEffect(() => {
+    if (editRequest?.id === id && !data.locked) {
+      useWorkspace.getState().checkpoint();
+      setEditing(true);
+    }
+  }, [editRequest, id, data.locked]);
   return (
     <div
       className="text-node"
@@ -105,10 +113,47 @@ const JobNode = memo(({ data }: NodeProps<CanvasNode>) => {
   );
 });
 const nodeTypes = { image: ImageNode, text: TextNode, group: GroupNode, job: JobNode };
-export function Canvas({ hand, inspect }: { hand: boolean; inspect: (ids: string[]) => void }) {
+export function Canvas({
+  hand,
+  inspect,
+  openContext,
+  closeContext,
+}: {
+  hand: boolean;
+  inspect: (ids: string[]) => void;
+  openContext: (target: ContextTarget) => void;
+  closeContext: () => void;
+}) {
   const board = useWorkspace((s) => s.board);
   const selected = useWorkspace((s) => s.selected);
   const flow = useReactFlow();
+  const gesture = useRef<{
+    start: Point;
+    viewport: Viewport;
+    id?: string;
+    selection: boolean;
+    moved: boolean;
+    handled: boolean;
+  } | null>(null);
+  const requestContext = (point: Point, id?: string, selection = false) => {
+    const s = useWorkspace.getState();
+    if (!s.board) return;
+    const ids = id ? contextSelection(s.selected, id) : selection ? s.selected : [];
+    if (id) s.select(ids);
+    openContext({
+      boardId: s.board.id,
+      ids: [...ids],
+      screen: point,
+      world: flow.screenToFlowPosition(point),
+    });
+  };
+  const contextEvent = (e: React.MouseEvent | MouseEvent, id?: string, selection = false) => {
+    if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]'))
+      return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!gesture.current) requestContext({ x: e.clientX, y: e.clientY }, id, selection);
+  };
   const nodes = useMemo<CanvasNode[]>(
     () =>
       (board?.items || []).map((i) => ({
@@ -165,6 +210,75 @@ export function Canvas({ hand, inspect }: { hand: boolean; inspect: (ids: string
   return (
     <div
       className="canvas-wrap"
+      tabIndex={-1}
+      onPointerDownCapture={(e) => {
+        if (
+          e.button !== 2 ||
+          (e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]')
+        )
+          return;
+        e.preventDefault();
+        e.stopPropagation();
+        closeContext();
+        const id = (e.target as HTMLElement).closest<HTMLElement>('.react-flow__node')?.dataset.id;
+        gesture.current = {
+          start: { x: e.clientX, y: e.clientY },
+          viewport: flow.getViewport(),
+          id,
+          selection: !!(e.target as HTMLElement).closest(
+            '.react-flow__nodesselection, .react-flow__nodesselection-rect',
+          ),
+          moved: false,
+          handled: false,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerMoveCapture={(e) => {
+        const g = gesture.current;
+        if (!g || g.handled || !(e.buttons & 2)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        g.moved ||= isRightDrag(g.start, { x: e.clientX, y: e.clientY });
+        if (g.moved) {
+          closeContext();
+          void flow.setViewport({
+            ...g.viewport,
+            x: g.viewport.x + e.clientX - g.start.x,
+            y: g.viewport.y + e.clientY - g.start.y,
+          });
+        }
+      }}
+      onPointerUpCapture={(e) => {
+        const g = gesture.current;
+        if (e.button !== 2 || !g) return;
+        e.preventDefault();
+        e.stopPropagation();
+        g.moved ||= isRightDrag(g.start, { x: e.clientX, y: e.clientY });
+        g.handled = true;
+        if (e.currentTarget.hasPointerCapture(e.pointerId))
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        if (!g.moved) requestContext(g.start, g.id, g.selection);
+      }}
+      onPointerCancel={() => {
+        gesture.current = null;
+        closeContext();
+      }}
+      onContextMenu={(e) => contextEvent(e)}
+      onKeyDownCapture={(e) => {
+        if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]'))
+          return;
+        if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        gesture.current = null;
+        const focused = (e.target as HTMLElement).closest<HTMLElement>('.react-flow__node');
+        const b = (focused || e.currentTarget).getBoundingClientRect();
+        requestContext(
+          { x: b.left + b.width / 2, y: b.top + b.height / 2 },
+          focused?.dataset.id,
+          !focused,
+        );
+      }}
       onDrop={drop}
       onDragOver={(e) => {
         e.preventDefault();
@@ -176,6 +290,10 @@ export function Canvas({ hand, inspect }: { hand: boolean; inspect: (ids: string
         edges={[]}
         nodeTypes={nodeTypes}
         onNodesChange={changes}
+        onPaneContextMenu={(e) => contextEvent(e)}
+        onNodeContextMenu={(e, n) => contextEvent(e, n.id)}
+        onSelectionContextMenu={(e) => contextEvent(e, undefined, true)}
+        onMoveStart={closeContext}
         onlyRenderVisibleElements
         minZoom={0.08}
         maxZoom={4}
@@ -188,7 +306,7 @@ export function Canvas({ hand, inspect }: { hand: boolean; inspect: (ids: string
         }}
         selectionMode={SelectionMode.Partial}
         selectionOnDrag={!hand}
-        panOnDrag={hand ? true : [1, 2]}
+        panOnDrag={hand ? [0, 1] : [1]}
         panActivationKeyCode="Space"
         selectionKeyCode="Shift"
         multiSelectionKeyCode="Control"

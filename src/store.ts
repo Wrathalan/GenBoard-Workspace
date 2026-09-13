@@ -16,6 +16,9 @@ type State = {
   selected: string[];
   error: string;
   saveStatus: string;
+  canUndo: boolean;
+  canRedo: boolean;
+  editRequest: { id: string; at: number } | null;
   load: (p: Project) => void;
   update: (p: Project) => void;
   select: (ids: string[]) => void;
@@ -38,6 +41,9 @@ export const useWorkspace = create<State>((set, get) => ({
   selected: [],
   error: '',
   saveStatus: 'Local only',
+  canUndo: false,
+  canRedo: false,
+  editRequest: null,
   load: (p) => {
     history.past = [];
     history.future = [];
@@ -48,6 +54,9 @@ export const useWorkspace = create<State>((set, get) => ({
       selected: [],
       error: '',
       saveStatus: 'Saved locally',
+      canUndo: false,
+      canRedo: false,
+      editRequest: null,
     });
   },
   update: (p) => {
@@ -70,12 +79,17 @@ export const useWorkspace = create<State>((set, get) => ({
   select: (selected) => set({ selected }),
   checkpoint: () => {
     if (get().board) history.push(get().board!.items);
+    set({ canUndo: history.past.length > 0, canRedo: history.future.length > 0 });
   },
   change: (items, checkpoint = true) => {
     const b = get().board;
     if (!b) return;
     if (checkpoint) history.push(b.items);
-    set({ board: { ...b, items } });
+    set({
+      board: { ...b, items },
+      canUndo: history.past.length > 0,
+      canRedo: history.future.length > 0,
+    });
     scheduleSave();
   },
   viewport: (viewport) => {

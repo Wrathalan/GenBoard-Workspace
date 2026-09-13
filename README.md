@@ -4,7 +4,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 ## Run or install
 
-The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.1.0.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.1.1.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -33,6 +33,16 @@ The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `np
 6. The project drawer contains boards and the asset library. Clicking a library image places another copy on the active board. Deleting a placement retains its original asset.
 
 Edits autosave. Text saves after a short pause; **Ctrl+S** flushes pending writes. Close the application before moving, backing up, or copying its project folder. Reopen the moved folder to continue. A second process cannot write to an already-open project. Stale locks from a terminated process recover automatically; an unreadable lock needs manual inspection after confirming no app instance is using the project.
+
+## Right-click menus (0.1.1)
+
+Right-click empty canvas to import, paste, or add a note at that exact location, and access viewport/history actions. Right-click an image, note, group, selection, or generation placeholder for relevant actions. A right-click on an unselected item selects it; right-clicking inside the selection keeps the entire selection. Dragging the right mouse button more than four pixels pans without opening a menu. Space, middle-button, and Hand-tool panning remain available.
+
+Image menus include **Copy image**, **Save original as…**, **Show in Explorer**, **View full resolution**, and **Use as reference**. Copy writes an orientation-correct PNG to the system clipboard; Save As preserves the original bytes and extension. Export destinations must be outside Imagine projects, and the native save dialog confirms external overwrites. File actions apply to one image at a time. Two selected images offer **Compare images**.
+
+Group and note menus provide rename/edit actions. Selection operations are disabled for incompatible or locked targets instead of silently changing a subset. Deleting selected group frames retains their unselected contents, as before. Job menus expose details and the cancel/retry/reconcile actions appropriate to the current state; failed/cancelled placeholders can be removed without deleting job history.
+
+Use **Shift+F10** or the keyboard Menu key to open a context menu, arrows/Home/End to navigate, Enter to act, and Escape to dismiss and restore focus. Menus stay inside the window and close when the viewport, board, or project changes. Editable text fields use the native Cut/Copy/Paste/Select All menu. Menu edits use the same undo and autosave behavior as toolbar and keyboard actions.
 
 ## Connect ComfyUI
 

@@ -6,6 +6,54 @@
   font-size: 13px;
   color-scheme: dark;
 }
+.context-menu {
+  position: fixed;
+  z-index: 90;
+  width: 270px;
+  padding: 5px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border: 1px solid #414439;
+  border-radius: 10px;
+  background: #20211dfc;
+  box-shadow: 0 12px 40px #0008;
+  scrollbar-width: thin;
+  scrollbar-color: #414737 transparent;
+}
+.context-menu button {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  font-size: 11px;
+  padding: 8px 9px;
+  border-radius: 5px;
+  min-height: 31px;
+  color: #d4d7cc;
+}
+.context-menu button span {
+  flex: 1;
+  text-align: left;
+}
+.context-menu button kbd {
+  font-size: 9px;
+  color: #8e9782;
+}
+.context-menu button:hover:not(:disabled),
+.context-menu button:focus-visible {
+  background: #363d2d;
+  outline: none;
+}
+.context-menu button:disabled {
+  opacity: 0.35;
+}
+.context-menu button.danger {
+  color: #e4aa9d;
+}
+.context-separator {
+  height: 1px;
+  background: #393c32;
+  margin: 4px 5px;
+}
 * {
   box-sizing: border-box;
 }

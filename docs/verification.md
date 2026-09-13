@@ -1,12 +1,12 @@
-# Verification — 2026-09-13
+# Verification — 0.1.1 — 2026-09-13
 
 ## Passed
 
 | Check | Result |
 | --- | --- |
 | TypeScript and production build | Passed |
-| Unit tests | 8 passed |
-| Electron desktop scenarios | 6 passed |
+| Unit tests | 19 passed |
+| Electron desktop scenarios | 9 passed |
 | Packaged Windows app smoke test | Passed; see `packaged-smoke.json` |
 | Dependency audit | 0 known vulnerabilities after updates |
 | Windows x64 installer | Built; unsigned NSIS installer |
@@ -20,11 +20,17 @@ The desktop scenarios exercise real Electron windows, native clipboard APIs, nat
 5. Drag/drop import, deletion of the matching server-pending prompt, linked retry, and refusal to interrupt another client's running prompt.
 6. Application shutdown/restart with an in-flight prompt, recovery using its saved prompt ID, and no new submission.
 
+7. Context selection rules, captured placement at non-default zoom, right-drag threshold, menu edge positioning, keyboard navigation, dismissal, and focus restoration.
+8. Image clipboard pixel equality, original export byte equality, cancellation and protected paths, invalid asset IDs, Explorer invocation, multi-image comparison, and locked-item actions.
+9. Import/paste placement, group rename, native editing menus, empty clipboard feedback, and generation job details/cancellation/placeholder removal.
+
+The new unit coverage checks full-selection action eligibility, job-state actions, the 4 CSS pixel gesture threshold, and screen-to-canvas coordinate conversion. Native Save As, Explorer, and editing-menu boundaries are stubbed in desktop tests; clipboard reads and writes use Electron directly.
+
 ## Performance sample
 
 Hardware detected: NVIDIA GeForce RTX 5080, 16 GB VRAM.
 
-The 500-image test uses distinct 512×768 synthetic color images on a board at 22% zoom. During a 100-step native pointer pan, 262 measured animation-frame intervals had a **4.2 ms median and 12.6 ms 95th percentile**. These intervals meet the approximate 60 FPS interaction target in this fixture. See `benchmark.json` for the raw summary.
+The 500-image test uses distinct 512×768 synthetic color images on a board at 22% zoom. During a 100-step native pointer pan, 268 measured animation-frame intervals had a **4.2 ms median and 12.6 ms 95th percentile**. These intervals meet the approximate 60 FPS interaction target in this fixture. See `benchmark.json` for the raw summary.
 
 This is not a promise of those timings for every board. It does not measure complex photographic decoding, huge source images, or panning while GPU inference is running.
 

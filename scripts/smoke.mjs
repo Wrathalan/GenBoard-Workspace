@@ -43,6 +43,14 @@ try {
   await page.getByRole('button', { name: 'Generate with ComfyUI' }).click();
   await page.getByRole('complementary', { name: 'Generation panel' }).waitFor();
   await page.screenshot({ path: 'docs/screenshots/workspace.png' });
+  await page.getByTitle('Close generation').click();
+  await page.locator('.text-node').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Edit text', exact: true }).waitFor();
+  await page.screenshot({ path: 'docs/screenshots/context-menu.png' });
+  await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click();
+  await page.keyboard.press('Control+s');
+  if ((await page.evaluate(() => window.imagine.currentProject())).boards[0].items.length !== 2)
+    throw new Error('Packaged context action failed');
   await fs.writeFile(
     'docs/packaged-smoke.json',
     JSON.stringify(
@@ -57,6 +65,7 @@ try {
           'Native Sharp thumbnail import',
           'Text editing and autosave',
           'Generation panel',
+          'Right-click context menu and duplicate action',
           'Clean shutdown',
         ],
       },

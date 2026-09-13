@@ -1,4 +1,14 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, net, protocol, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  net,
+  protocol,
+  session,
+  Menu,
+} from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -7,6 +17,7 @@ import { ProjectStore, contained } from './project';
 import { JobService } from './jobs';
 import { parseWorkflow, validateWorkflow } from '../shared/workflow';
 import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
+import { copyAssetImage, exportAsset, revealAsset } from './asset-actions';
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -95,6 +106,16 @@ app.whenReady().then(async () => {
     },
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return;
+    Menu.buildFromTemplate([
+      { role: 'cut', enabled: params.editFlags.canCut },
+      { role: 'copy', enabled: params.editFlags.canCopy },
+      { role: 'paste', enabled: params.editFlags.canPaste },
+      { type: 'separator' },
+      { role: 'selectAll' },
+    ]).popup({ window: win });
+  });
   win.webContents.on('will-navigate', (event) => event.preventDefault());
   win.on('close', (e) => {
     if (!closing) {
@@ -150,6 +171,9 @@ app.whenReady().then(async () => {
     const blob = (await image.getType('image/png')) as Blob;
     return requireStore().importAsset(Buffer.from(await blob.arrayBuffer()), 'Clipboard image.png');
   });
+  handle('asset:copy-image', (id: string) => copyAssetImage(requireStore(), id));
+  handle('asset:export', (id: string) => exportAsset(requireStore(), win, id));
+  handle('asset:reveal', (id: string) => revealAsset(requireStore(), id));
   handle('style:save', (style: string) => {
     if (typeof style !== 'string' || style.length > 100000) throw new Error('Invalid style');
     requireStore().setting('style', style);

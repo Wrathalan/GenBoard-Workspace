@@ -18,9 +18,11 @@ import { assetUrl } from './Canvas';
 export function Generation({
   close,
   referenceRequest,
+  jobRequest,
 }: {
   close: () => void;
   referenceRequest?: { id: string; at: number };
+  jobRequest?: { id: string; at: number };
 }) {
   const project = useWorkspace((s) => s.project)!;
   const selected = useWorkspace((s) => s.selected);
@@ -53,6 +55,14 @@ export function Generation({
       if (!template?.mappings.image) setTemplateId('sdxl-image');
     }
   }, [referenceRequest]);
+  useEffect(() => {
+    if (!jobRequest) return;
+    const row = document.querySelector<HTMLElement>(`[data-job-id="${CSS.escape(jobRequest.id)}"]`);
+    const details = row?.querySelector('details');
+    if (details) details.open = true;
+    row?.scrollIntoView({ block: 'nearest' });
+    row?.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
+  }, [jobRequest]);
   // Only the operational master direction becomes the style prefix; omit the source document's provenance and templates.
   const style = project.style;
   const referenceDirection =
@@ -508,7 +518,7 @@ export function Generation({
         </div>
         {!project.jobs.length && <p className="micro">Your generation history will appear here.</p>}
         {[...project.jobs].reverse().map((j) => (
-          <div className="job-row" key={j.id}>
+          <div className="job-row" key={j.id} data-job-id={j.id}>
             <div className="row">
               <span className={`status-label ${j.state}`}>
                 {j.state === 'completed' && <CheckCircle2 size={12} />} {j.state.replace('-', ' ')}

@@ -2,8 +2,8 @@
   "cards": 500,
   "uniqueAssets": 500,
   "fixtureResolution": "512x768",
-  "samples": 262,
-  "medianMs": 4.200000000000273,
-  "p95Ms": 12.600000000000364,
+  "samples": 268,
+  "medianMs": 4.2000000000000455,
+  "p95Ms": 12.599999999999909,
   "note": "requestAnimationFrame timing during 100-step native pointer pan; 500 distinct synthetic color images, viewport culling enabled. Does not measure photographic decode complexity or GPU inference concurrency."
 }
