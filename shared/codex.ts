@@ -1,4 +1,10 @@
-export type CodexEvent = { type: 'status' | 'text' | 'tool' | 'error' | 'done'; text: string };
+export type CodexEvent = {
+  type: 'status' | 'text' | 'tool' | 'error' | 'done' | 'image';
+  text: string;
+  itemId?: string;
+  assetId?: string;
+};
+export type CodexRunOptions = { referenceAssetIds?: string[]; position?: { x: number; y: number } };
 export type WorkspaceToolCall = {
   id: string;
   boardId: string;

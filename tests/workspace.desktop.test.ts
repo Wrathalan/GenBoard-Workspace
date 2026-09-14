@@ -30,6 +30,8 @@ async function launch(projectFolder: string, create = true) {
   );
   await page.reload();
   await expect(page.getByRole('button', { name: 'Text card', exact: true })).toBeVisible();
+  if (await page.getByRole('complementary', { name: 'Codex agent panel' }).isVisible())
+    await page.getByRole('button', { name: 'Close Codex', exact: true }).click();
 }
 test.beforeEach(async ({}, info) => {
   folder = path.resolve('.test-data', `project-${info.workerIndex}-${Date.now()}`);

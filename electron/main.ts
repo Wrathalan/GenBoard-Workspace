@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { ProjectStore, contained } from './project';
 import { JobService } from './jobs';
 import { parseWorkflow, validateWorkflow } from '../shared/workflow';
+import type { CodexRunOptions } from '../shared/codex';
 import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
 import { CodexHarness } from './codex';
 import { copyAssetImage, exportAsset, revealAsset } from './asset-actions';
@@ -43,6 +44,27 @@ async function executeCodexTool(boardId: string, action: string, args: Record<st
   const project = requireStore().snapshot();
   if (project.activeBoardId !== boardId)
     throw new Error('The active board changed. Start a new request.');
+  if (action === 'ingest_codex_image') {
+    const current = requireStore();
+    const bytes = Buffer.from(args.bytes as Uint8Array);
+    if (bytes.length > 50_000_000) throw new Error('Generated image is too large.');
+    const asset = await current.importAsset(bytes, `Codex image ${Date.now()}.png`, true);
+    current.setting(
+      'codex-image:' + String(args.providerItemId),
+      JSON.stringify({
+        assetId: asset.id,
+        sourceIds: args.sourceIds,
+        revisedPrompt: args.revisedPrompt,
+        createdAt: Date.now(),
+      }),
+    );
+    emit();
+    await executeCodexTool(boardId, 'place_codex_image', {
+      assetId: asset.id,
+      position: args.position,
+    });
+    return { assetId: asset.id };
+  }
   if (action === 'connect') {
     const c = await jobs!.connect(Number(args.port || 8188));
     return { checkpoints: c.checkpoints, device: c.device };
@@ -176,10 +198,23 @@ app.whenReady().then(async () => {
   handle('codex:login', () => codex.login());
   handle('codex:logout', () => codex.logout());
   handle('codex:choose', () => codex.choose());
-  handle('codex:run', (boardId: string, prompt: string) => {
+  handle('codex:run', (boardId: string, prompt: string, options: CodexRunOptions = {}) => {
     if (requireStore().snapshot().activeBoardId !== boardId) throw new Error('Board changed.');
-    return codex.run(boardId, prompt);
+    const ids = options.referenceAssetIds || [];
+    if (!Array.isArray(ids) || ids.length > 5 || ids.some((id) => typeof id !== 'string'))
+      throw new Error('Attach up to five images.');
+    const project = requireStore().snapshot();
+    const images = ids.map((id) => {
+      const a = project.assets.find((a) => a.id === id);
+      if (!a) throw new Error('Unknown reference asset.');
+      return contained(requireStore().folder, a.path);
+    });
+    const position = options.position || { x: 0, y: 0 };
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y))
+      throw new Error('Invalid output position.');
+    return codex.run(boardId, prompt, { images, referenceAssetIds: ids, position });
   });
+  handle('codex:new-chat', () => codex.newChat());
   handle('codex:stop', () => codex.stop());
   handle('codex:tool-result', (id: string, result: unknown, error?: string) => {
     const pending = codexTools.get(id);
@@ -306,6 +341,7 @@ app.whenReady().then(async () => {
       getStore: () => store,
       getJobs: () => jobs,
       executeCodexTool,
+      getCodex: () => codex,
       contained,
     };
   }

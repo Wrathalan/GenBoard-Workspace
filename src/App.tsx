@@ -51,7 +51,13 @@ export function App() {
   const error = useWorkspace((s) => s.error);
   const saveStatus = useWorkspace((s) => s.saveStatus);
   const [left, setLeft] = useState(false);
-  const [right, setRight] = useState<'generate' | 'inspect' | 'codex' | null>(null);
+  const [right, setRight] = useState<'generate' | 'inspect' | null>(null);
+  const [chatOpen, setChatOpen] = useState(
+    () => localStorage.getItem('imagine.chatOpen') !== 'false',
+  );
+  useEffect(() => {
+    localStorage.setItem('imagine.chatOpen', String(chatOpen));
+  }, [chatOpen]);
   const [hand, setHand] = useState(false);
   const [viewer, setViewer] = useState<string[]>([]);
   const [help, setHelp] = useState(false);
@@ -276,7 +282,11 @@ export function App() {
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (document.querySelector('[role="menu"], dialog[open]')) return;
+      if (
+        document.querySelector('[role="menu"], dialog[open]') ||
+        (e.target as HTMLElement).closest('.codex-panel')
+      )
+        return;
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]'))
         return;
       const s = useWorkspace.getState();
@@ -342,7 +352,7 @@ export function App() {
         ? useWorkspace.getState()[name]()
         : runSelectionAction(name);
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${chatOpen ? 'chat-open' : ''}`}>
       <Appearance />
       <header className="topbar">
         <div className="top-left">
@@ -516,8 +526,8 @@ export function App() {
           />
         </div>
       )}
-      <div style={{ display: right === 'codex' ? 'contents' : 'none' }}>
-        <CodexPanel close={() => setRight(null)} />
+      <div style={{ display: chatOpen ? 'contents' : 'none' }}>
+        <CodexPanel close={() => setChatOpen(false)} />
       </div>
       {project && right === 'inspect' && (
         <aside className="panel right-panel inspector">
@@ -645,8 +655,8 @@ export function App() {
             <button
               title="Codex workspace agent"
               aria-label="Codex workspace agent"
-              className={right === 'codex' ? 'active' : ''}
-              onClick={() => setRight(right === 'codex' ? null : 'codex')}
+              className={chatOpen ? 'active' : ''}
+              onClick={() => setChatOpen((v) => !v)}
             >
               Codex
             </button>

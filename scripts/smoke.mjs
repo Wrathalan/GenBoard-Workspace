@@ -51,7 +51,8 @@ try {
   await page.keyboard.press('Control+s');
   if ((await page.evaluate(() => window.imagine.currentProject())).boards[0].items.length !== 2)
     throw new Error('Packaged context action failed');
-  await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
+  if (!(await page.getByRole('complementary', { name: 'Codex agent panel' }).isVisible()))
+    await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
   await page.getByRole('button', { name: 'Sign into Codex', exact: true }).waitFor();
   await page.screenshot({ path: 'docs/screenshots/codex.png' });
   await fs.writeFile(

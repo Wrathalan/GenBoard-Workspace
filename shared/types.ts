@@ -108,11 +108,16 @@ export type GenerateRequest = {
   offlineTestConfirmed?: boolean;
 };
 export interface WorkspaceAPI {
-  codexStatus(): Promise<{ signedIn: boolean; label: string }>;
+  codexStatus(): Promise<{ signedIn: boolean; label: string; imageGeneration?: boolean | null }>;
   codexLogin(): Promise<void>;
   codexLogout(): Promise<void>;
   codexChoose(): Promise<void>;
-  codexRun(boardId: string, prompt: string): Promise<void>;
+  codexRun(
+    boardId: string,
+    prompt: string,
+    options?: import('./codex').CodexRunOptions,
+  ): Promise<void>;
+  codexNewChat(): Promise<void>;
   codexStop(): Promise<void>;
   codexToolResult(id: string, result: unknown, error?: string): Promise<void>;
   onCodexEvent(callback: (event: import('./codex').CodexEvent) => void): () => void;

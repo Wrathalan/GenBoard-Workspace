@@ -40,7 +40,10 @@ it('routes sign-in, tools, duplicate call IDs and interruption through app-serve
       return {};
     },
   };
-  const execute = vi.fn(async () => ({ created: 'card-test' }));
+  const execute = vi.fn(async (..._args: any[]) => ({
+    created: 'card-test',
+    assetId: 'asset-test',
+  }));
   const h = new CodexHarness(
     {
       isDestroyed: () => false,
@@ -72,9 +75,53 @@ it('routes sign-in, tools, duplicate call IDs and interruption through app-serve
   rpc.onMessage({ ...m, id: 101 });
   await vi.waitFor(() => expect(responses.filter((r) => r.result?.success)).toHaveLength(2));
   expect(execute).toHaveBeenCalledTimes(1);
+  expect(
+    requests
+      .find((r) => r.method === 'turn/start')
+      .params.input.some((i: any) => i.type === 'skill' && i.name === 'imagegen'),
+  ).toBe(true);
+  const imageEvent = {
+    method: 'item/completed',
+    params: {
+      threadId: 'thread-test',
+      item: { type: 'imageGeneration', id: 'generated-1', status: 'completed', result: 'aGVsbG8=' },
+    },
+  };
+  rpc.onMessage(imageEvent);
+  rpc.onMessage(imageEvent);
+  await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(2));
+  expect(execute.mock.calls[1][1]).toBe('ingest_codex_image');
+  rpc.onMessage({
+    ...imageEvent,
+    params: { ...imageEvent.params, item: { ...imageEvent.params.item, id: 'generated-2' } },
+  });
+  await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(3));
+  expect(execute.mock.calls[2][2].position.x - execute.mock.calls[1][2].position.x).toBe(360);
   await h.stop();
   expect(requests.at(-1).method).toBe('turn/interrupt');
   rpc.onMessage({ method: 'turn/completed', params: { turn: { status: 'interrupted' } } });
-  expect(h.busy).toBe(false);
+  await vi.waitFor(() => expect(h.busy).toBe(false));
   h.close();
+});
+
+import { generatedImageBytes } from '../electron/codex-images';
+it('rejects incomplete images, remote URLs and paths outside the private profile', () => {
+  expect(() =>
+    generatedImageBytes({ status: 'running', result: 'aGVsbG8=' }, process.cwd()),
+  ).toThrow();
+  expect(() =>
+    generatedImageBytes(
+      { status: 'completed', result: 'https://example.com/image.png' },
+      process.cwd(),
+    ),
+  ).toThrow();
+  expect(() =>
+    generatedImageBytes(
+      { status: 'completed', savedPath: process.cwd() + '/../outside.png' },
+      process.cwd(),
+    ),
+  ).toThrow();
+  expect(
+    generatedImageBytes({ status: 'completed', result: 'aGVsbG8=' }, process.cwd()).toString(),
+  ).toBe('hello');
 });

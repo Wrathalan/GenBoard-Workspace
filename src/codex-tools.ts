@@ -17,6 +17,15 @@ export async function executeCanvasTool(call: WorkspaceToolCall, fit: (ids: stri
     p = s.project;
   if (!b || !p || b.id !== call.boardId) throw new Error('The active board changed.');
   const a = call.args;
+  if (call.action === 'place_codex_image') {
+    const latest = await window.imagine.currentProject();
+    const asset = latest?.assets.find((a) => a.id === call.args.assetId);
+    if (!asset || useWorkspace.getState().board?.id !== call.boardId)
+      throw new Error('Generated image is in the asset library; target board changed.');
+    useWorkspace.getState().addAssets([asset], call.args.position as { x: number; y: number });
+    await flush();
+    return { placed: asset.id };
+  }
   if (call.action === 'snapshot')
     return {
       board: { id: b.id, name: b.name, viewport: b.viewport, items: b.items },

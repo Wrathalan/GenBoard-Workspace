@@ -5,7 +5,8 @@ const api: WorkspaceAPI = {
   codexLogin: () => ipcRenderer.invoke('codex:login'),
   codexLogout: () => ipcRenderer.invoke('codex:logout'),
   codexChoose: () => ipcRenderer.invoke('codex:choose'),
-  codexRun: (board, prompt) => ipcRenderer.invoke('codex:run', board, prompt),
+  codexRun: (board, prompt, options) => ipcRenderer.invoke('codex:run', board, prompt, options),
+  codexNewChat: () => ipcRenderer.invoke('codex:new-chat'),
   codexStop: () => ipcRenderer.invoke('codex:stop'),
   codexToolResult: (id, result, error) =>
     ipcRenderer.invoke('codex:tool-result', id, result, error),

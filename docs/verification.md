@@ -1,3 +1,9 @@
+# Version 0.3.0 - 2026-09-14
+
+All 26 unit tests and 14 desktop scenarios passed. New coverage checks left-docked chat/canvas separation, Enter/Shift+Enter, streamed message bubbles, explicit image attachments, native imagegen skill input, completed-image ingestion, duplicate event suppression, output spacing, path validation and inline previews. Native image bytes in fixtures are synthetic; no online imagegen request was made.
+
+The installed Codex provider capability/account handshake is tested with an isolated signed-out profile. Authenticated imagegen remains unverified and depends on the user's account and installed Codex. Imagegen and explicit reference attachments use OpenAI online; local ComfyUI remains available separately. Shell and external tool access remain disabled.
+
 # Version 0.2.0 - 2026-09-14
 
 All 25 unit tests and 13 desktop scenarios passed. New Codex coverage checks bounded tool arguments, browser sign-in routing through a simulated app-server, dynamic tool responses, duplicate call suppression, interruption, canvas edits/undo/locked items, and generation through fake ComfyUI. The actual installed Codex app-server initialization/account-read handshake passed with an isolated signed-out profile.

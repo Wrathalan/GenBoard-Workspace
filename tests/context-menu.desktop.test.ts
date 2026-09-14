@@ -27,6 +27,8 @@ test.beforeEach(async () => {
   );
   await page.reload();
   await page.getByRole('button', { name: 'Text card', exact: true }).waitFor();
+  if (await page.getByRole('complementary', { name: 'Codex agent panel' }).isVisible())
+    await page.getByRole('button', { name: 'Close Codex', exact: true }).click();
 });
 test.afterEach(async () => {
   await app?.close();
@@ -403,4 +405,75 @@ test('installed Codex app-server initializes with isolated signed-out profile', 
   const status = await page.evaluate(() => window.imagine.codexStatus());
   expect(status.signedIn).toBe(false);
   expect(status.label).toBe('Not signed in');
+});
+
+test('left chat sends conversational messages, attaches selections and imports imagegen results', async () => {
+  await seedImages();
+  await page.locator('.image-node').first().click();
+  await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Codex agent panel' });
+  const bounds = (await panel.boundingBox())!,
+    canvas = (await page.locator('.canvas-wrap').boundingBox())!;
+  expect(bounds.x).toBeLessThan(10);
+  expect(canvas.x).toBeGreaterThanOrEqual(bounds.x + bounds.width - 1);
+  await app.evaluate(({ BrowserWindow }) => {
+    const h = (globalThis as any).imagineTest.getCodex();
+    h.status = async () => ({ signedIn: true, label: 'Test account', imageGeneration: true });
+    h.run = async (board: string, prompt: string, options: any) => {
+      (globalThis as any).chatTest = { board, prompt, options };
+      const win = BrowserWindow.getAllWindows()[0];
+      win.webContents.send('codex:event', {
+        type: 'text',
+        itemId: 'reply-1',
+        text: 'Here is a new direction.',
+      });
+      win.webContents.send('codex:event', { type: 'done', text: 'Completed' });
+    };
+  });
+  await page.getByRole('button', { name: 'Connect / refresh', exact: true }).click();
+  await page.getByRole('button', { name: 'Attach selected images', exact: true }).click();
+  const composer = page.getByRole('textbox', { name: 'Codex request' });
+  await composer.fill('Make a variation');
+  await composer.press('Shift+Enter');
+  await composer.type('with blue light');
+  await composer.press('Enter');
+  await expect(page.getByLabel('Your message', { exact: true })).toContainText('with blue light');
+  await expect(page.getByLabel('Codex message', { exact: true })).toContainText(
+    'Here is a new direction.',
+  );
+  expect(await app.evaluate(() => (globalThis as any).chatTest.options.images.length)).toBe(1);
+  const png = await sharp({
+    create: { width: 80, height: 120, channels: 3, background: '#3e88bb' },
+  })
+    .png()
+    .toBuffer();
+  const imported = await app.evaluate(
+    async ({ BrowserWindow }, bytes) => {
+      const t = (globalThis as any).imagineTest;
+      const r = await t.executeCodexTool(t.snapshot().activeBoardId, 'ingest_codex_image', {
+        bytes: new Uint8Array(bytes),
+        providerItemId: 'fixture-image',
+        revisedPrompt: 'Blue lighting',
+        sourceIds: [],
+        position: { x: 600, y: 250 },
+      });
+      BrowserWindow.getAllWindows()[0].webContents.send('codex:event', {
+        type: 'image',
+        itemId: 'image-result',
+        text: 'Generated image',
+        assetId: r.assetId,
+      });
+      return r;
+    },
+    [...png],
+  );
+  await expect(page.getByAltText('Chat image').last()).toBeVisible();
+  expect(
+    (await page.evaluate(() => window.imagine.currentProject()))!.assets.some(
+      (a) => a.id === imported.assetId,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: 'docs/screenshots/codex-chat.png' });
+  await page.getByRole('button', { name: 'New chat', exact: true }).click();
+  await expect(page.getByLabel('Your message', { exact: true })).toHaveCount(0);
 });

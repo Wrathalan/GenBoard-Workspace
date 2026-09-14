@@ -15,3 +15,5 @@ await copyFile(
   'resources/graphic-anime-generation.md',
   'dist-electron/graphic-anime-generation.md',
 );
+
+await copyFile('resources/imagegen-skill.md', 'dist-electron/imagegen-skill.md');

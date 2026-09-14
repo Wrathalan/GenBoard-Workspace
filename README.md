@@ -4,7 +4,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 ## Run or install
 
-The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.2.0.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.3.0.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -34,17 +34,19 @@ The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `np
 
 Edits autosave. Text saves after a short pause; **Ctrl+S** flushes pending writes. Close the application before moving, backing up, or copying its project folder. Reopen the moved folder to continue. A second process cannot write to an already-open project. Stale locks from a terminated process recover automatically; an unreadable lock needs manual inspection after confirming no app instance is using the project.
 
-## Codex workspace agent (0.2.0)
+## Codex chat and imagegen (0.3.0)
 
-Click **Codex** in the bottom toolbar, then **Sign into Codex**. Complete the official ChatGPT/Codex browser sign-in. **Connect / refresh** checks status. The app finds an installed `codex.exe` in the normal Codex desktop location or PATH; **Choose codex.exe…** supports other installations. Codex is not downloaded or installed automatically. This integration uses the experimental [Codex app-server protocol](https://learn.chatgpt.com/docs/app-server); update the separately installed Codex if its protocol is incompatible.
+Codex opens docked to the left edge, with the canvas beside it. The bottom **Codex** button toggles the dock, and the app remembers whether it was open. Chat uses separate user/assistant messages, streamed replies, inline image previews, and a fixed composer. **Enter** sends; **Shift+Enter** inserts a newline. **New chat** starts a fresh conversation. Chat history lasts for this app session.
 
-This is an optional online feature: requests share board text, layout, asset metadata, workflow definitions, style and job information with OpenAI. Image bytes are not attached to Codex; references for image generation go directly to local ComfyUI. The app-server runs outside the renderer's offline network restriction. It keeps a separate Codex profile under the app's local user-data folder, so signing out here does not sign out the Codex desktop app. Credentials remain managed by Codex and are never exposed to the renderer. App-server analytics are disabled.
+Use **Sign into Codex** to complete the official browser sign-in. **Connect / refresh** checks your existing app sign-in. Chat settings hold executable selection, sign-out and provider imagegen capability status. The app finds an installed `codex.exe` in the normal desktop location or PATH; it does not download or install Codex. Its separate profile preserves your other Codex app sign-ins.
 
-Ask it to add or edit notes, move/align/group/duplicate cards, select or fit items, lock/unlock, delete placements, undo/redo, inspect jobs, or connect to ComfyUI. Canvas operations use the same history/autosave and locked-selection checks. For example: “Connect to ComfyUI on port 8188 and list the workflows and checkpoints,” then “Generate four images with the SDXL text workflow using [your compatible checkpoint], prompt: …”. Generation uses the existing local queue, style defaults, seed records, references, cancellation and reconciliation. Imported workflows must already be offline-verified in the generation panel; the agent cannot claim that verification.
+The imagegen skill is loaded for chat turns and uses Codex's native image-generation capability through your signed-in account. Ask for new images or edits in normal language. Select board images and click the paperclip to attach up to five references. **Attachments are sent to Codex online**, along with your request and requested workspace context. Completed generated images are copied into local project output storage, shown in chat, and placed beside the current canvas center. Repeated completion events are deduplicated. Partial results do not create cards. The revised prompt and reference asset IDs are recorded locally. Imported images can be repositioned or removed using normal undo/history.
 
-**Stop** interrupts the agent turn. It does not cancel previously queued image jobs; use their existing controls or ask Codex to cancel a specific job. Already completed edits remain undoable. Board/project switching is blocked during a running turn. Sessions are ephemeral; chat is kept in memory until the app closes. The provider's account access and usage limits apply. Shell tools, web search and environment access are disabled for these agent threads; workspace operations go through the registered tool boundary.
+The project graphic-anime style remains the default; explicit later directions override it. ComfyUI remains available when you ask for local generation. Native imagegen uses OpenAI online and does not require the ComfyUI server; the app does not silently substitute an API-key image service if imagegen is unavailable. Provider/account support and the installed Codex version determine availability. The host uses the [app-server protocol](https://learn.chatgpt.com/docs/app-server) and installed protocol definitions for image-generation completion events.
 
-Verification includes the installed app-server's initialization/account-read handshake using an isolated signed-out test profile, simulated sign-in/tool-call/interruption protocol tests, and workspace generation against the fake ComfyUI server. An authenticated live Codex turn and real model inference have not been verified; signing in is completed by the user in their browser.
+The agent can also add/edit notes, move/align/group/duplicate cards, select/fit, lock/unlock, delete placements, undo/redo, and manage ComfyUI jobs. **Stop** interrupts Codex but retains already completed edits and queued ComfyUI jobs. Board/project switching is blocked during a turn. Shell, web-search and environment access remain disabled; imagegen is explicitly enabled. Credentials remain in the app's private Codex profile, outside the renderer.
+
+Tests cover message flow, attachments, left docking, skill injection, image-result ingestion/deduplication, and the installed server's signed-out handshake. An authenticated live imagegen request has not been verified; complete browser sign-in to use it.
 
 ## Custom colors (0.1.3)
 
