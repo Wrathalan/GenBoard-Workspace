@@ -28,6 +28,7 @@ import {
   Ungroup,
   X,
 } from 'lucide-react';
+import { Appearance } from './Appearance';
 import { Canvas, assetUrl } from './Canvas';
 import { Generation } from './Generation';
 import { fail, flush, useWorkspace } from './store';
@@ -259,7 +260,7 @@ export function App() {
   }, []);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (document.querySelector('[role="menu"]')) return;
+      if (document.querySelector('[role="menu"], dialog[open]')) return;
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]'))
         return;
       const s = useWorkspace.getState();
@@ -326,6 +327,7 @@ export function App() {
         : runSelectionAction(name);
   return (
     <main className="app-shell">
+      <Appearance />
       <header className="topbar">
         <div className="top-left">
           <button

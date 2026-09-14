@@ -4,7 +4,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 ## Run or install
 
-The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.1.2.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.1.3.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -33,6 +33,10 @@ The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `np
 6. The project drawer contains boards and the asset library. Clicking a library image places another copy on the active board. Deleting a placement retains its original asset.
 
 Edits autosave. Text saves after a short pause; **Ctrl+S** flushes pending writes. Close the application before moving, backing up, or copying its project folder. Reopen the moved folder to continue. A second process cannot write to an already-open project. Stale locks from a terminated process recover automatically; an unreadable lock needs manual inspection after confirming no app instance is using the project.
+
+## Custom colors (0.1.3)
+
+Click the palette button beside keyboard help to customize the canvas background, grid dots, alignment guides, selection highlights, interface accent, panels/toolbars, interface text, text cards, and group frames. Colors preview instantly and save on this computer across projects. **Reset colors** restores the defaults. These are workspace appearance settings; original image pixels and project content are unchanged.
 
 ## Grid and alignment snapping (0.1.2)
 

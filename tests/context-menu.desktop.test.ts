@@ -322,3 +322,30 @@ test('grid snapping and alignment guides work during a drag and undo restores po
   await expect(grid).toHaveAttribute('aria-pressed', 'true');
   await expect(guides).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('appearance colors preview, persist and reset without changing board content', async () => {
+  await page.getByRole('button', { name: 'Text card', exact: true }).click();
+  await page.keyboard.press('Control+s');
+  const before = (await page.evaluate(() => window.imagine.currentProject()))!.boards[0].items;
+  await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Customize colors' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Canvas background', { exact: true }).fill('#203040');
+  await dialog.getByLabel('Selection highlights', { exact: true }).fill('#ff8800');
+  await dialog.getByLabel('Text cards', { exact: true }).fill('#aaddff');
+  await expect(page.locator('.canvas-wrap')).toHaveCSS('background-color', 'rgb(32, 48, 64)');
+  await expect(page.locator('.text-node')).toHaveCSS('color', 'rgb(170, 221, 255)');
+  await page.keyboard.press('Delete');
+  await page.screenshot({ path: 'docs/screenshots/appearance.png' });
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
+  await expect(dialog.getByLabel('Canvas background', { exact: true })).toHaveValue('#203040');
+  await dialog.getByRole('button', { name: 'Reset colors' }).click();
+  await expect(dialog.getByLabel('Canvas background', { exact: true })).toHaveValue('#111110');
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+  expect((await page.evaluate(() => window.imagine.currentProject()))!.boards[0].items).toEqual(
+    before,
+  );
+});

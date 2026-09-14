@@ -1,3 +1,7 @@
+# Version 0.1.3 — 2026-09-14
+
+Custom workspace colors: production build and 23 unit tests passed. Two targeted desktop scenarios passed: appearance live preview, local persistence, reset, unchanged board records, dialog keyboard isolation, and the existing snapping drag/undo regression. The full harness suite was not repeated for this presentation-only change. The unsigned 0.1.3 installer and packaged smoke result are recorded in the delivery files.
+
 # Version 0.1.2 — 2026-09-14
 
 Grid snapping and edge/center alignment guides: 23 unit tests passed. All 10 desktop scenarios passed across the regression run and a targeted rerun of the four canvas-menu scenarios. The first run caught a test loading race; the helper now waits for project controls before clicking. New coverage checks grid rounding, zoom-relative alignment thresholds, grouped world coordinates, selection spacing, drag release, undo, guide dismissal, and remembered toggles.

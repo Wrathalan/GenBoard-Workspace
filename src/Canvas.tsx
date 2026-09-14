@@ -358,8 +358,8 @@ export function Canvas({
           variant={BackgroundVariant.Dots}
           gap={GRID_SIZE}
           size={1}
-          color={grid ? '#535448' : '#393934'}
-          bgColor="#111110"
+          color="var(--color-grid, #535448)"
+          bgColor="var(--color-canvas, #111110)"
         />
       </ReactFlow>
       {board && (

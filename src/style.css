@@ -890,3 +890,145 @@ kbd {
   right: 0;
   height: 1px;
 }
+
+/* Appearance tokens affect presentation only, never imported image pixels. */
+:root {
+  --color-canvas: #111110;
+  --color-grid: #535448;
+  --color-guides: #c6d9aa;
+  --color-selection: #bccdaa;
+  --color-accent: #c6d9aa;
+  --color-surface: #191917;
+  --color-text: #e7e6e2;
+  --color-cardText: #dadbd2;
+  --color-group: #9ba68d;
+  color: var(--color-text);
+  background: var(--color-canvas);
+}
+.app-shell,
+.canvas-wrap {
+  background: var(--color-canvas);
+}
+.topbar,
+.toolbar,
+.zoom-control,
+.help-button,
+.snap-controls,
+.panel,
+.context-menu,
+.appearance-button {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+button,
+.context-menu button,
+.panel-title,
+.project-name {
+  color: var(--color-text);
+}
+button:hover:not(:disabled),
+button.active {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+}
+button:focus-visible {
+  outline-color: var(--color-accent);
+}
+.toolbar .generate-tool,
+.save-status {
+  color: var(--color-accent);
+}
+.context-menu button:hover:not(:disabled),
+.context-menu button:focus-visible {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+}
+.text-node,
+.text-node textarea {
+  color: var(--color-cardText);
+}
+.group-node {
+  border-color: var(--color-group);
+  background: color-mix(in srgb, var(--color-group) 5%, transparent);
+}
+.group-node > span {
+  color: var(--color-group);
+}
+.react-flow__node.selected .image-node,
+.react-flow__node.selected .text-node {
+  outline-color: var(--color-selection);
+}
+.react-flow__resize-control.handle {
+  background: var(--color-selection);
+}
+.react-flow__resize-control.line,
+.react-flow__selection,
+.react-flow__nodesselection-rect {
+  border-color: var(--color-selection);
+}
+.react-flow__selection {
+  background: color-mix(in srgb, var(--color-selection) 10%, transparent);
+}
+.snap-guide {
+  background: var(--color-guides);
+  box-shadow: 0 0 3px color-mix(in srgb, var(--color-guides) 25%, transparent);
+}
+.appearance-button {
+  position: absolute;
+  right: 62px;
+  bottom: 16px;
+  z-index: 15;
+  border: 1px solid #32332b;
+  border-radius: 13px;
+  height: 39px;
+  width: 39px;
+}
+.appearance-dialog {
+  width: 390px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 0 0 16px;
+  border: 1px solid #525252;
+  border-radius: 12px;
+  background: #191917;
+  color: #e7e6e2;
+}
+.appearance-dialog::backdrop {
+  background: #0008;
+}
+.appearance-dialog p {
+  margin: 12px 20px;
+  color: #bdbdb6;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.appearance-dialog button,
+.appearance-dialog .panel-title {
+  color: #e7e6e2;
+}
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 20px;
+  color: #e7e6e2;
+}
+.color-row span {
+  flex: 1;
+}
+.color-row input {
+  width: 38px;
+  height: 28px;
+  padding: 2px;
+  cursor: pointer;
+}
+.color-row code {
+  width: 62px;
+  color: #bdbdb6;
+  font-size: 11px;
+}
+.appearance-dialog footer {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 20px 0;
+}
