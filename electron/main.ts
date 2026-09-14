@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { RecentProjects } from './recent-projects';
 import { ProjectStore, contained } from './project';
 import { JobService } from './jobs';
 import { parseWorkflow, validateWorkflow } from '../shared/workflow';
@@ -31,6 +32,15 @@ let win: BrowserWindow;
 let store: ProjectStore | undefined;
 let jobs: JobService | undefined;
 let closing = false;
+const recentProjects = () =>
+  new RecentProjects(
+    path.join(
+      process.env.IMAGINE_TEST === '1'
+        ? path.resolve('.test-data', 'preferences')
+        : app.getPath('userData'),
+      'recent-projects.json',
+    ),
+  );
 let codex: CodexHarness;
 const codexTools = new Map<
   string,
@@ -107,7 +117,11 @@ function emit() {
 }
 async function openProject(folder: string, create: boolean) {
   if (codex?.busy) throw new Error('Stop the Codex turn before switching projects.');
-  if (store?.folder === fs.realpathSync(folder)) return store.snapshot();
+  if (store?.folder === fs.realpathSync(folder)) {
+    const p = store.snapshot();
+    recentProjects().record(p.folder, p.name);
+    return p;
+  }
   if (
     jobs?.busy ||
     store
@@ -124,6 +138,13 @@ async function openProject(folder: string, create: boolean) {
       .replace(/\[[^\]]*\]/g, '')
       .trim();
   const next = new ProjectStore(folder, create, style);
+  try {
+    const p = next.snapshot();
+    recentProjects().record(p.folder, p.name);
+  } catch (e) {
+    next.close();
+    throw e;
+  }
   jobs?.close();
   store?.close();
   store = next;
@@ -239,6 +260,9 @@ app.whenReady().then(async () => {
     if (selection.canceled) return null;
     return openProject(selection.filePaths[0], create);
   });
+  handle('project:recent', () => recentProjects().list());
+  handle('project:open-recent', (id: string) => openProject(recentProjects().resolve(id), false));
+  handle('project:forget-recent', (id: string) => recentProjects().remove(id));
   handle('project:current', () => store?.snapshot() || null);
   handle('board:save', (b: Board, known?: string[]) => {
     requireStore().saveBoard(b, known);

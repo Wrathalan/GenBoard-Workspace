@@ -107,7 +107,17 @@ export type GenerateRequest = {
   position: Point;
   offlineTestConfirmed?: boolean;
 };
+export type RecentProject = {
+  id: string;
+  name: string;
+  folder: string;
+  openedAt: number;
+  missing: boolean;
+};
 export interface WorkspaceAPI {
+  recentProjects(): Promise<RecentProject[]>;
+  openRecentProject(id: string): Promise<Project>;
+  forgetRecentProject(id: string): Promise<void>;
   codexStatus(): Promise<{ signedIn: boolean; label: string; imageGeneration?: boolean | null }>;
   codexLogin(): Promise<void>;
   codexLogout(): Promise<void>;

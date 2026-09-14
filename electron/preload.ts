@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { WorkspaceAPI } from '../shared/types';
 const api: WorkspaceAPI = {
+  recentProjects: () => ipcRenderer.invoke('project:recent'),
+  openRecentProject: (id) => ipcRenderer.invoke('project:open-recent', id),
+  forgetRecentProject: (id) => ipcRenderer.invoke('project:forget-recent', id),
   codexStatus: () => ipcRenderer.invoke('codex:status'),
   codexLogin: () => ipcRenderer.invoke('codex:login'),
   codexLogout: () => ipcRenderer.invoke('codex:logout'),

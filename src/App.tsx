@@ -28,6 +28,7 @@ import {
   Ungroup,
   X,
 } from 'lucide-react';
+import { RecentProjects } from './RecentProjects';
 import { CodexPanel } from './CodexPanel';
 import { executeCanvasTool } from './codex-tools';
 import { Appearance } from './Appearance';
@@ -42,7 +43,7 @@ import {
   type MenuAction,
   type SelectionAction,
 } from '../shared/context-menu';
-import type { Point } from '../shared/types';
+import type { Point, RecentProject } from '../shared/types';
 
 export function App() {
   const project = useWorkspace((s) => s.project);
@@ -51,6 +52,12 @@ export function App() {
   const error = useWorkspace((s) => s.error);
   const saveStatus = useWorkspace((s) => s.saveStatus);
   const [left, setLeft] = useState(false);
+  const [recents, setRecents] = useState<RecentProject[]>([]);
+  const [openingProject, setOpeningProject] = useState(false);
+  const refreshRecents = () => window.imagine.recentProjects().then(setRecents).catch(fail);
+  useEffect(() => {
+    void refreshRecents();
+  }, [project?.folder, left]);
   const [right, setRight] = useState<'generate' | 'inspect' | null>(null);
   const [chatOpen, setChatOpen] = useState(
     () => localStorage.getItem('imagine.chatOpen') !== 'false',
@@ -101,10 +108,14 @@ export function App() {
   );
   const center = () =>
     flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-  const chooseProject = async (create: boolean) => {
+  const chooseProject = async (create: boolean, recentId?: string) => {
+    if (openingProject) return;
+    setOpeningProject(true);
     try {
       await flush();
-      const p = await window.imagine.chooseProject(create);
+      const p = recentId
+        ? await window.imagine.openRecentProject(recentId)
+        : await window.imagine.chooseProject(create);
       if (p) {
         useWorkspace.getState().load(p);
         setLeft(false);
@@ -113,8 +124,19 @@ export function App() {
       }
     } catch (e) {
       fail(e);
+    } finally {
+      setOpeningProject(false);
+      void refreshRecents();
     }
   };
+  const recentList = (
+    <RecentProjects
+      items={recents}
+      busy={openingProject}
+      open={(id) => void chooseProject(false, id)}
+      forget={(id) => void window.imagine.forgetRecentProject(id).then(refreshRecents).catch(fail)}
+    />
+  );
   const importImages = async (point: Point = center()) => {
     const targetBoard = useWorkspace.getState().board?.id;
     try {
@@ -434,6 +456,7 @@ export function App() {
               <FolderOpen size={16} /> Open project
             </button>
           </div>
+          {recentList}
           <div className="welcome-foot">
             <span className="status-dot online" /> Offline by design <span>·</span> No account
             required
@@ -455,6 +478,7 @@ export function App() {
             <button className="wide text-button" onClick={() => void chooseProject(false)}>
               <FolderOpen size={15} /> Open project folder
             </button>
+            {recentList}
             {project && (
               <>
                 <div className="section-title">

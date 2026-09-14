@@ -1,3 +1,7 @@
+# Version 0.3.1 - 2026-09-14
+
+Recent-project navigation: all 29 unit tests passed, including cache persistence, ordering/deduplication, bounded history, corrupt-cache recovery, unavailable folders, and removal without deleting files. Three targeted desktop scenarios passed: recent-project reopening after process restart with folder dialogs disabled, existing project relocation/writer locking, and in-flight job restart recovery. The full desktop suite was not repeated for this focused navigation change. The packaged smoke test passed on rerun; its first attempt encountered a transient duplicate text-node locator during the existing context-menu step.
+
 # Version 0.3.0 - 2026-09-14
 
 All 26 unit tests and 14 desktop scenarios passed. New coverage checks left-docked chat/canvas separation, Enter/Shift+Enter, streamed message bubbles, explicit image attachments, native imagegen skill input, completed-image ingestion, duplicate event suppression, output spacing, path validation and inline previews. Native image bytes in fixtures are synthetic; no online imagegen request was made.

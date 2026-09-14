@@ -1,11 +1,12 @@
 {
   "passed": true,
-  "checkedAt": "2026-09-14T19:00:46.189Z",
+  "checkedAt": "2026-09-14T19:32:59.208Z",
   "electron": "44.3.0",
   "checks": [
     "Packaged executable launch",
     "Welcome rendering",
     "Native SQLite project creation",
+    "Recent project cache",
     "Native Sharp thumbnail import",
     "Text editing and autosave",
     "Generation panel",

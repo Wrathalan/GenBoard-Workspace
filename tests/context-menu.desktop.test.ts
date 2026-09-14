@@ -477,3 +477,34 @@ test('left chat sends conversational messages, attaches selections and imports i
   await page.getByRole('button', { name: 'New chat', exact: true }).click();
   await expect(page.getByLabel('Your message', { exact: true })).toHaveCount(0);
 });
+
+test('recent project opens from the welcome screen after restarting without a folder dialog', async () => {
+  await page.getByRole('button', { name: 'Text card', exact: true }).click();
+  await page.keyboard.press('Control+s');
+  const name = (await page.evaluate(() => window.imagine.currentProject()))!.name;
+  await app.close();
+  const env = Object.fromEntries(
+    Object.entries({ ...process.env, IMAGINE_TEST: '1' }).filter(
+      (e): e is [string, string] => e[1] !== undefined && e[0] !== 'ELECTRON_RUN_AS_NODE',
+    ),
+  );
+  app = await electron.launch({ args: ['.'], env });
+  page = await app.firstWindow();
+  await app.evaluate(({ dialog }) => {
+    dialog.showOpenDialog = async () => {
+      throw new Error('Recent project must not open a folder dialog');
+    };
+  });
+  await page.getByRole('button', { name: `Open recent project ${name}`, exact: true }).click();
+  await expect(page.locator('.text-node')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Projects and boards', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: `Open recent project ${name}`, exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: 'docs/screenshots/recent-projects.png' });
+  await page.getByRole('button', { name: `Forget recent project ${name}`, exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: `Open recent project ${name}`, exact: true }),
+  ).toHaveCount(0);
+  expect((await fs.stat(path.join(folder, 'workspace.sqlite'))).isFile()).toBe(true);
+});

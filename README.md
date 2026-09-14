@@ -4,7 +4,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 ## Run or install
 
-The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.3.0.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.3.1.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -22,6 +22,10 @@ npm run package
 ```
 
 The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `npm ci`. If you change Electron versions, run `npm run postinstall` before testing or packaging. Packaging produces an unsigned, per-user NSIS installer; no administrator installation is required.
+
+## Recent projects (0.3.1)
+
+The start screen and project drawer list your last 12 successfully opened projects, newest first. Click one to reopen directly without a folder dialog. Names and paths are cached in `recent-projects.json` in the app's local user-data folder, so they survive restarts and app updates. Unavailable folders stay listed; reconnect the drive or use **Open project** to locate a moved folder. The X removes only the recent entry, never project files. Opening a recent project retains the usual writer-lock and active-job checks.
 
 ## Use the workspace
 

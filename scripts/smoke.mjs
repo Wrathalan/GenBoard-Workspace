@@ -55,6 +55,10 @@ try {
     await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
   await page.getByRole('button', { name: 'Sign into Codex', exact: true }).waitFor();
   await page.screenshot({ path: 'docs/screenshots/codex.png' });
+  if (
+    !(await page.evaluate(() => window.imagine.recentProjects())).some((r) => r.folder === folder)
+  )
+    throw new Error('Packaged recent-project cache failed');
   await fs.writeFile(
     'docs/packaged-smoke.json',
     JSON.stringify(
@@ -66,6 +70,7 @@ try {
           'Packaged executable launch',
           'Welcome rendering',
           'Native SQLite project creation',
+          'Recent project cache',
           'Native Sharp thumbnail import',
           'Text editing and autosave',
           'Generation panel',

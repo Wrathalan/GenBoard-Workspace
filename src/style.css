@@ -1239,3 +1239,62 @@ button:focus-visible {
   height: 45px;
   object-fit: cover;
 }
+
+.recent-projects {
+  margin-top: 20px;
+  width: 100%;
+  max-width: 450px;
+}
+.recent-projects h3 {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text);
+  opacity: 0.6;
+  margin: 0 0 8px;
+}
+.recent-list {
+  max-height: 210px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.recent-project {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border-bottom: 1px solid #ffffff09;
+}
+.recent-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  justify-content: flex-start;
+  padding: 10px 6px;
+}
+.recent-open > span {
+  min-width: 0;
+  flex: 1;
+}
+.recent-open strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-open small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  opacity: 0.5;
+  margin-top: 3px;
+}
+.recent-forget {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.welcome {
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+}
