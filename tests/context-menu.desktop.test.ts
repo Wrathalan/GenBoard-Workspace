@@ -34,6 +34,7 @@ test.afterEach(async () => {
 const menu = () => page.getByRole('menu', { name: 'Canvas context menu' });
 const menuitem = (name: string) => page.getByRole('menuitem', { name, exact: true });
 async function right(x: number, y: number) {
+  await page.getByRole('button', { name: 'Text card', exact: true }).waitFor();
   await page.mouse.click(x, y, { button: 'right' });
   await expect(menu()).toBeVisible();
 }
@@ -271,4 +272,53 @@ test('import and clipboard placement, native editing menu, group rename and job 
   } finally {
     await fixture.close();
   }
+});
+
+test('grid snapping and alignment guides work during a drag and undo restores position', async () => {
+  await page.evaluate(async () => {
+    const p = (await window.imagine.currentProject())!;
+    const b = p.boards[0];
+    b.viewport = { x: 0, y: 0, zoom: 1 };
+    b.items = ['a', 'b'].map((id, index) => ({
+      id,
+      type: 'text',
+      position: { x: 120 + index * 360, y: 120 + index * 180 },
+      width: 100,
+      height: 80,
+      data: { text: id },
+    }));
+    await window.imagine.saveBoard(b);
+  });
+  await page.reload();
+  const grid = page.getByRole('button', { name: 'Snap to grid', exact: true });
+  const guides = page.getByRole('button', { name: 'Alignment guides', exact: true });
+  if ((await grid.getAttribute('aria-pressed')) === 'false') await grid.click();
+  if ((await guides.getAttribute('aria-pressed')) === 'true') await guides.click();
+  let box = (await page.locator('[data-id="a"]').boundingBox())!;
+  await page.mouse.move(box.x + 30, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 59, box.y + 67, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.press('Control+s');
+  let p = (await page.evaluate(() => window.imagine.currentProject()))!;
+  expect(p.boards[0].items.find((i) => i.id === 'a')!.position).toEqual({ x: 144, y: 144 });
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+s');
+  p = (await page.evaluate(() => window.imagine.currentProject()))!;
+  expect(p.boards[0].items.find((i) => i.id === 'a')!.position).toEqual({ x: 120, y: 120 });
+  await guides.click();
+  box = (await page.locator('[data-id="a"]').boundingBox())!;
+  await page.mouse.move(box.x + 30, box.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 34, box.y + 30);
+  await page.mouse.move(box.x + 393, box.y + 110, { steps: 10 });
+  await expect(page.locator('.snap-guide.x')).toBeVisible();
+  await page.mouse.up();
+  await expect(page.locator('.snap-guide')).toHaveCount(0);
+  await page.keyboard.press('Control+s');
+  p = (await page.evaluate(() => window.imagine.currentProject()))!;
+  expect(p.boards[0].items.find((i) => i.id === 'a')!.position.x).toBe(480);
+  await page.reload();
+  await expect(grid).toHaveAttribute('aria-pressed', 'true');
+  await expect(guides).toHaveAttribute('aria-pressed', 'true');
 });

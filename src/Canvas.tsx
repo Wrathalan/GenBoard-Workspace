@@ -10,10 +10,11 @@ import {
   type Node,
   type NodeChange,
 } from '@xyflow/react';
-import { ImageIcon, LoaderCircle, Lock } from 'lucide-react';
+import { Grid3X3, ScanLine, ImageIcon, LoaderCircle, Lock } from 'lucide-react';
 import { useWorkspace, fail, flush } from './store';
 import type { CanvasItem, ItemData, Point, Viewport } from '../shared/types';
 import { contextSelection, isRightDrag, type ContextTarget } from '../shared/context-menu';
+import { GRID_SIZE, snapPositions, type SnapGuide } from '../shared/snapping';
 type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job'>;
 export const assetUrl = (id: string, original = false) =>
   `imagine://${id}/${original ? 'original' : 'thumbnail'}`;
@@ -127,6 +128,20 @@ export function Canvas({
   const board = useWorkspace((s) => s.board);
   const selected = useWorkspace((s) => s.selected);
   const flow = useReactFlow();
+  const [grid, setGrid] = useState(() => localStorage.getItem('imagine.snapGrid') !== 'false');
+  const [alignment, setAlignment] = useState(
+    () => localStorage.getItem('imagine.snapAlignment') !== 'false',
+  );
+  const [guides, setGuides] = useState<SnapGuide[]>([]);
+  useEffect(() => {
+    localStorage.setItem('imagine.snapGrid', String(grid));
+  }, [grid]);
+  useEffect(() => {
+    localStorage.setItem('imagine.snapAlignment', String(alignment));
+  }, [alignment]);
+  useEffect(() => {
+    setGuides([]);
+  }, [board?.id, grid, alignment]);
   const gesture = useRef<{
     start: Point;
     viewport: Viewport;
@@ -167,28 +182,50 @@ export function Canvas({
       })),
     [board?.items, selected],
   );
-  const changes = useCallback((changes: NodeChange<CanvasNode>[]) => {
-    const s = useWorkspace.getState();
-    if (!s.board) return;
-    const selection = new Set(s.selected);
-    let items = s.board.items;
-    let mutated = false;
-    for (const c of changes) {
-      if (c.type === 'select') {
-        c.selected ? selection.add(c.id) : selection.delete(c.id);
+  const changes = useCallback(
+    (changes: NodeChange<CanvasNode>[]) => {
+      const s = useWorkspace.getState();
+      if (!s.board) return;
+      const proposed = new Map<string, Point>();
+      for (const c of changes)
+        if (c.type === 'position' && c.position && c.dragging !== undefined)
+          proposed.set(c.id, c.position);
+      if (proposed.size) {
+        const snapped = snapPositions(
+          s.board.items,
+          proposed,
+          s.board.viewport.zoom,
+          grid,
+          alignment,
+        );
+        changes = changes.map((c) =>
+          c.type === 'position' && snapped.positions.has(c.id)
+            ? { ...c, position: snapped.positions.get(c.id)! }
+            : c,
+        );
+        setGuides(changes.some((c) => c.type === 'position' && c.dragging) ? snapped.guides : []);
       }
-      if (c.type === 'position' && c.position) {
-        items = items.map((i) => (i.id === c.id ? { ...i, position: c.position! } : i));
-        mutated = true;
+      const selection = new Set(s.selected);
+      let items = s.board.items;
+      let mutated = false;
+      for (const c of changes) {
+        if (c.type === 'select') {
+          c.selected ? selection.add(c.id) : selection.delete(c.id);
+        }
+        if (c.type === 'position' && c.position) {
+          items = items.map((i) => (i.id === c.id ? { ...i, position: c.position! } : i));
+          mutated = true;
+        }
+        if (c.type === 'dimensions' && c.dimensions && c.resizing) {
+          items = items.map((i) => (i.id === c.id ? { ...i, ...c.dimensions } : i));
+          mutated = true;
+        }
       }
-      if (c.type === 'dimensions' && c.dimensions && c.resizing) {
-        items = items.map((i) => (i.id === c.id ? { ...i, ...c.dimensions } : i));
-        mutated = true;
-      }
-    }
-    if (changes.some((c) => c.type === 'select')) s.select([...selection]);
-    if (mutated) s.change(items, false);
-  }, []);
+      if (changes.some((c) => c.type === 'select')) s.select([...selection]);
+      if (mutated) s.change(items, false);
+    },
+    [grid, alignment],
+  );
   const drop = async (e: React.DragEvent) => {
     e.preventDefault();
     if (!useWorkspace.getState().board) return;
@@ -301,6 +338,9 @@ export function Canvas({
         viewport={board?.viewport}
         onViewportChange={(v) => useWorkspace.getState().viewport(v)}
         onNodeDragStart={() => useWorkspace.getState().checkpoint()}
+        onSelectionDragStart={() => useWorkspace.getState().checkpoint()}
+        onNodeDragStop={() => setGuides([])}
+        onSelectionDragStop={() => setGuides([])}
         onNodeDoubleClick={(_, n) => {
           if (n.type === 'image') inspect([n.data.assetId!]);
         }}
@@ -316,12 +356,49 @@ export function Canvas({
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={24}
+          gap={GRID_SIZE}
           size={1}
-          color="#393934"
+          color={grid ? '#535448' : '#393934'}
           bgColor="#111110"
         />
       </ReactFlow>
+      {board && (
+        <>
+          <div className="snap-controls" role="toolbar" aria-label="Snapping controls">
+            <button
+              title="Snap to 24 px grid"
+              aria-label="Snap to grid"
+              aria-pressed={grid}
+              className={grid ? 'active' : ''}
+              onClick={() => setGrid(!grid)}
+            >
+              <Grid3X3 size={16} /> Grid
+            </button>
+            <button
+              title="Snap to image and text edges and centers"
+              aria-label="Alignment guides"
+              aria-pressed={alignment}
+              className={alignment ? 'active' : ''}
+              onClick={() => setAlignment(!alignment)}
+            >
+              <ScanLine size={16} /> Guides
+            </button>
+          </div>
+          <div className="snap-guides" aria-hidden="true">
+            {guides.map((g) => (
+              <div
+                key={g.axis}
+                className={`snap-guide ${g.axis}`}
+                style={
+                  g.axis === 'x'
+                    ? { left: g.value * board.viewport.zoom + board.viewport.x }
+                    : { top: g.value * board.viewport.zoom + board.viewport.y }
+                }
+              />
+            ))}
+          </div>
+        </>
+      )}
       {board && !board.items.length && (
         <div className="empty-board">
           <div className="empty-icon">

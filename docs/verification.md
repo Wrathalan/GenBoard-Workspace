@@ -1,3 +1,9 @@
+# Version 0.1.2 � 2026-09-14
+
+Grid snapping and edge/center alignment guides: 23 unit tests passed. All 10 desktop scenarios passed across the regression run and a targeted rerun of the four canvas-menu scenarios. The first run caught a test loading race; the helper now waits for project controls before clicking. New coverage checks grid rounding, zoom-relative alignment thresholds, grouped world coordinates, selection spacing, drag release, undo, guide dismissal, and remembered toggles.
+
+The unsigned Windows 0.1.2 installer was built and the packaged application smoke test passed. Snapping applies to dragging; resizing and import placement are unchanged. Existing real-inference limitations below still apply.
+
 # Verification — 0.1.1 — 2026-09-13
 
 ## Passed

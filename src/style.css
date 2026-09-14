@@ -847,3 +847,46 @@ kbd {
     scroll-behavior: auto !important;
   }
 }
+
+.snap-controls {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #191917;
+  border: 1px solid #32332b;
+  border-radius: 10px;
+}
+.snap-controls button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 7px 10px;
+}
+.snap-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 12;
+}
+.snap-guide {
+  position: absolute;
+  background: #c6d9aa;
+  box-shadow: 0 0 3px #c6d9aa44;
+}
+.snap-guide.x {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.snap-guide.y {
+  left: 0;
+  right: 0;
+  height: 1px;
+}

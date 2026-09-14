@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "checkedAt": "2026-09-13T18:08:39.421Z",
+  "checkedAt": "2026-09-14T18:07:31.537Z",
   "electron": "44.3.0",
   "checks": [
     "Packaged executable launch",
