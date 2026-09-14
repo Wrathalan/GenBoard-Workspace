@@ -1,8 +1,14 @@
-# Version 0.1.3 — 2026-09-14
+# Version 0.2.0 - 2026-09-14
+
+All 25 unit tests and 13 desktop scenarios passed. New Codex coverage checks bounded tool arguments, browser sign-in routing through a simulated app-server, dynamic tool responses, duplicate call suppression, interruption, canvas edits/undo/locked items, and generation through fake ComfyUI. The actual installed Codex app-server initialization/account-read handshake passed with an isolated signed-out profile.
+
+An authenticated live Codex conversation and real ComfyUI model inference have **not** been verified. Sign-in requires the user to complete the official browser flow. App-server dynamic tools are experimental and depend on the separately installed Codex version. The online agent transmits workspace context; manual canvas and local ComfyUI operation retain their offline boundary.
+
+# Version 0.1.3 â€” 2026-09-14
 
 Custom workspace colors: production build and 23 unit tests passed. Two targeted desktop scenarios passed: appearance live preview, local persistence, reset, unchanged board records, dialog keyboard isolation, and the existing snapping drag/undo regression. The full harness suite was not repeated for this presentation-only change. The unsigned 0.1.3 installer and packaged smoke result are recorded in the delivery files.
 
-# Version 0.1.2 — 2026-09-14
+# Version 0.1.2 â€” 2026-09-14
 
 Grid snapping and edge/center alignment guides: 23 unit tests passed. All 10 desktop scenarios passed across the regression run and a targeted rerun of the four canvas-menu scenarios. The first run caught a test loading race; the helper now waits for project controls before clicking. New coverage checks grid rounding, zoom-relative alignment thresholds, grouped world coordinates, selection spacing, drag release, undo, guide dismissal, and remembered toggles.
 

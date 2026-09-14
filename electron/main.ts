@@ -17,6 +17,7 @@ import { ProjectStore, contained } from './project';
 import { JobService } from './jobs';
 import { parseWorkflow, validateWorkflow } from '../shared/workflow';
 import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
+import { CodexHarness } from './codex';
 import { copyAssetImage, exportAsset, revealAsset } from './asset-actions';
 
 protocol.registerSchemesAsPrivileged([
@@ -29,6 +30,52 @@ let win: BrowserWindow;
 let store: ProjectStore | undefined;
 let jobs: JobService | undefined;
 let closing = false;
+let codex: CodexHarness;
+const codexTools = new Map<
+  string,
+  {
+    resolve: (r: unknown) => void;
+    reject: (e: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }
+>();
+async function executeCodexTool(boardId: string, action: string, args: Record<string, unknown>) {
+  const project = requireStore().snapshot();
+  if (project.activeBoardId !== boardId)
+    throw new Error('The active board changed. Start a new request.');
+  if (action === 'connect') {
+    const c = await jobs!.connect(Number(args.port || 8188));
+    return { checkpoints: c.checkpoints, device: c.device };
+  }
+  if (action === 'cancel_job' || action === 'retry_job') {
+    const j = project.jobs.find((j) => j.id === args.id && j.boardId === boardId);
+    if (!j) throw new Error('Unknown job on this board.');
+    return action === 'cancel_job' ? await jobs!.cancel(j.id) : await jobs!.retry(j.id);
+  }
+  if (action === 'reconcile') {
+    await jobs!.tick();
+    return {
+      jobs: requireStore()
+        .snapshot()
+        .jobs.filter((j) => j.boardId === boardId),
+    };
+  }
+  return new Promise<unknown>((resolve, reject) => {
+    const id = randomUUID();
+    const timer = setTimeout(() => {
+      codexTools.delete(id);
+      reject(new Error('Workspace action timed out. Inspect the board/jobs before retrying.'));
+    }, 45000);
+    codexTools.set(id, { resolve, reject, timer });
+    win.webContents.send('codex:tool', {
+      id,
+      boardId,
+      action,
+      args,
+      caps: jobs?.caps ? { checkpoints: jobs.caps.checkpoints, device: jobs.caps.device } : null,
+    });
+  });
+}
 const requireStore = () => {
   if (!store) throw new Error('Open or create a project first.');
   return store;
@@ -37,6 +84,7 @@ function emit() {
   if (store && !win?.isDestroyed()) win.webContents.send('project:update', store.snapshot());
 }
 async function openProject(folder: string, create: boolean) {
+  if (codex?.busy) throw new Error('Stop the Codex turn before switching projects.');
   if (store?.folder === fs.realpathSync(folder)) return store.snapshot();
   if (
     jobs?.busy ||
@@ -123,6 +171,31 @@ app.whenReady().then(async () => {
       win.webContents.send('app:closing');
     }
   });
+  codex = new CodexHarness(win, executeCodexTool);
+  handle('codex:status', () => codex.status());
+  handle('codex:login', () => codex.login());
+  handle('codex:logout', () => codex.logout());
+  handle('codex:choose', () => codex.choose());
+  handle('codex:run', (boardId: string, prompt: string) => {
+    if (requireStore().snapshot().activeBoardId !== boardId) throw new Error('Board changed.');
+    return codex.run(boardId, prompt);
+  });
+  handle('codex:stop', () => codex.stop());
+  handle('codex:tool-result', (id: string, result: unknown, error?: string) => {
+    const pending = codexTools.get(id);
+    if (!pending) throw new Error('Expired workspace request.');
+    codexTools.delete(id);
+    clearTimeout(pending.timer);
+    error ? pending.reject(new Error(error)) : pending.resolve(result);
+  });
+  win.on('closed', () => {
+    codex.close();
+    for (const p of codexTools.values()) {
+      clearTimeout(p.timer);
+      p.reject(new Error('Window closed.'));
+    }
+    codexTools.clear();
+  });
   handle('project:choose', async (create: boolean) => {
     const selection = await dialog.showOpenDialog(win, {
       title: create ? 'Choose a folder for your project' : 'Open Imagine project folder',
@@ -138,6 +211,7 @@ app.whenReady().then(async () => {
   });
   handle('board:create', (name: string) => requireStore().createBoard(name));
   handle('board:activate', (id: string) => {
+    if (codex.busy) throw new Error('Stop the Codex turn before switching boards.');
     if (
       !requireStore()
         .list<Board>('boards')
@@ -231,6 +305,7 @@ app.whenReady().then(async () => {
       snapshot: () => store?.snapshot(),
       getStore: () => store,
       getJobs: () => jobs,
+      executeCodexTool,
       contained,
     };
   }

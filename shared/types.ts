@@ -108,6 +108,15 @@ export type GenerateRequest = {
   offlineTestConfirmed?: boolean;
 };
 export interface WorkspaceAPI {
+  codexStatus(): Promise<{ signedIn: boolean; label: string }>;
+  codexLogin(): Promise<void>;
+  codexLogout(): Promise<void>;
+  codexChoose(): Promise<void>;
+  codexRun(boardId: string, prompt: string): Promise<void>;
+  codexStop(): Promise<void>;
+  codexToolResult(id: string, result: unknown, error?: string): Promise<void>;
+  onCodexEvent(callback: (event: import('./codex').CodexEvent) => void): () => void;
+  onCodexTool(callback: (call: import('./codex').WorkspaceToolCall) => void): () => void;
   chooseProject(create: boolean): Promise<Project | null>;
   currentProject(): Promise<Project | null>;
   saveBoard(board: Board, knownManagedIds?: string[]): Promise<void>;

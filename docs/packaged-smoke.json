@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "checkedAt": "2026-09-14T18:28:26.541Z",
+  "checkedAt": "2026-09-14T18:39:56.571Z",
   "electron": "44.3.0",
   "checks": [
     "Packaged executable launch",
@@ -9,6 +9,7 @@
     "Native Sharp thumbnail import",
     "Text editing and autosave",
     "Generation panel",
+    "Codex panel and sign-in entry point",
     "Right-click context menu and duplicate action",
     "Clean shutdown"
   ]

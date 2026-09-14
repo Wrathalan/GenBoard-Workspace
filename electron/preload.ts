@@ -1,6 +1,24 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { WorkspaceAPI } from '../shared/types';
 const api: WorkspaceAPI = {
+  codexStatus: () => ipcRenderer.invoke('codex:status'),
+  codexLogin: () => ipcRenderer.invoke('codex:login'),
+  codexLogout: () => ipcRenderer.invoke('codex:logout'),
+  codexChoose: () => ipcRenderer.invoke('codex:choose'),
+  codexRun: (board, prompt) => ipcRenderer.invoke('codex:run', board, prompt),
+  codexStop: () => ipcRenderer.invoke('codex:stop'),
+  codexToolResult: (id, result, error) =>
+    ipcRenderer.invoke('codex:tool-result', id, result, error),
+  onCodexEvent: (callback) => {
+    const listener = (_: unknown, event: any) => callback(event);
+    ipcRenderer.on('codex:event', listener);
+    return () => ipcRenderer.removeListener('codex:event', listener);
+  },
+  onCodexTool: (callback) => {
+    const listener = (_: unknown, call: any) => callback(call);
+    ipcRenderer.on('codex:tool', listener);
+    return () => ipcRenderer.removeListener('codex:tool', listener);
+  },
   chooseProject: (create) => ipcRenderer.invoke('project:choose', create),
   currentProject: () => ipcRenderer.invoke('project:current'),
   saveBoard: (board, known) => ipcRenderer.invoke('board:save', board, known),

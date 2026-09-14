@@ -1032,3 +1032,37 @@ button:focus-visible {
   justify-content: space-between;
   margin: 12px 20px 0;
 }
+
+.codex-panel {
+  width: 390px;
+}
+.codex-notice,
+.codex-panel small {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text);
+  opacity: 0.8;
+}
+.codex-auth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0;
+}
+.codex-auth button {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  font-size: 11px;
+}
+.codex-log {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 38vh;
+  min-height: 120px;
+  overflow: auto;
+  border: 1px solid #444;
+  border-radius: 7px;
+  padding: 12px;
+  margin: 12px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}

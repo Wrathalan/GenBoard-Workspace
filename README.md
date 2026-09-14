@@ -1,10 +1,10 @@
 # Local Imagine Workspace
 
-A standalone Windows desktop canvas for local images, notes, reference groups, and ComfyUI generation. Projects and inference stay on your computer. The interface has no account, telemetry, cloud provider, remote font, or runtime CDN dependency.
+A standalone Windows desktop canvas for local images, notes, reference groups, and ComfyUI generation. Projects and ComfyUI image inference stay on your computer. The optional Codex agent uses an online Codex account; manual canvas operation remains offline. There is no application telemetry, remote font, or runtime CDN dependency.
 
 ## Run or install
 
-The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.1.3.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.2.0.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -33,6 +33,18 @@ The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `np
 6. The project drawer contains boards and the asset library. Clicking a library image places another copy on the active board. Deleting a placement retains its original asset.
 
 Edits autosave. Text saves after a short pause; **Ctrl+S** flushes pending writes. Close the application before moving, backing up, or copying its project folder. Reopen the moved folder to continue. A second process cannot write to an already-open project. Stale locks from a terminated process recover automatically; an unreadable lock needs manual inspection after confirming no app instance is using the project.
+
+## Codex workspace agent (0.2.0)
+
+Click **Codex** in the bottom toolbar, then **Sign into Codex**. Complete the official ChatGPT/Codex browser sign-in. **Connect / refresh** checks status. The app finds an installed `codex.exe` in the normal Codex desktop location or PATH; **Choose codex.exe…** supports other installations. Codex is not downloaded or installed automatically. This integration uses the experimental [Codex app-server protocol](https://learn.chatgpt.com/docs/app-server); update the separately installed Codex if its protocol is incompatible.
+
+This is an optional online feature: requests share board text, layout, asset metadata, workflow definitions, style and job information with OpenAI. Image bytes are not attached to Codex; references for image generation go directly to local ComfyUI. The app-server runs outside the renderer's offline network restriction. It keeps a separate Codex profile under the app's local user-data folder, so signing out here does not sign out the Codex desktop app. Credentials remain managed by Codex and are never exposed to the renderer. App-server analytics are disabled.
+
+Ask it to add or edit notes, move/align/group/duplicate cards, select or fit items, lock/unlock, delete placements, undo/redo, inspect jobs, or connect to ComfyUI. Canvas operations use the same history/autosave and locked-selection checks. For example: “Connect to ComfyUI on port 8188 and list the workflows and checkpoints,” then “Generate four images with the SDXL text workflow using [your compatible checkpoint], prompt: …”. Generation uses the existing local queue, style defaults, seed records, references, cancellation and reconciliation. Imported workflows must already be offline-verified in the generation panel; the agent cannot claim that verification.
+
+**Stop** interrupts the agent turn. It does not cancel previously queued image jobs; use their existing controls or ask Codex to cancel a specific job. Already completed edits remain undoable. Board/project switching is blocked during a running turn. Sessions are ephemeral; chat is kept in memory until the app closes. The provider's account access and usage limits apply. Shell tools, web search and environment access are disabled for these agent threads; workspace operations go through the registered tool boundary.
+
+Verification includes the installed app-server's initialization/account-read handshake using an isolated signed-out test profile, simulated sign-in/tool-call/interruption protocol tests, and workspace generation against the fake ComfyUI server. An authenticated live Codex turn and real model inference have not been verified; signing in is completed by the user in their browser.
 
 ## Custom colors (0.1.3)
 
@@ -90,7 +102,7 @@ Full offline acceptance: with external networking blocked, import images, edit/g
 
 ## Verification status and limitations
 
-See `docs/verification.md` for measured results. Automated desktop tests use a visibly labeled local fake ComfyUI server; simulated execution is not real model generation. Real inference requires a separately running compatible installation. Video, Grok export import, embedded graph editing, installation management, and natural-language Agent mode are deferred.
+See `docs/verification.md` for measured results. Automated desktop tests use a visibly labeled local fake ComfyUI server; simulated execution is not real model generation. Real inference requires a separately running compatible installation. Video, Grok export import, embedded graph editing, and installation management are deferred. Codex Agent mode is available as an optional online integration.
 
 ## Architecture
 
@@ -98,4 +110,4 @@ The React/Zustand renderer uses React Flow for positioning, selection, and viewp
 
 The schema is version 1. Newer unsupported project versions are refused. Future migrations must be explicit. Filesystem reads use asset IDs and checked project-relative paths, including junction/symlink containment; the renderer never supplies an arbitrary filesystem path.
 
-Future Agent mode can call the same project, board, asset, workflow, and provider operations. No placeholder agent or simulated generation is presented in the production UI.
+Codex Agent mode calls the same board and provider services through registered workspace tools. No simulated generation is presented in the production UI.

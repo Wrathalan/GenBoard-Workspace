@@ -28,6 +28,8 @@ import {
   Ungroup,
   X,
 } from 'lucide-react';
+import { CodexPanel } from './CodexPanel';
+import { executeCanvasTool } from './codex-tools';
 import { Appearance } from './Appearance';
 import { Canvas, assetUrl } from './Canvas';
 import { Generation } from './Generation';
@@ -49,7 +51,7 @@ export function App() {
   const error = useWorkspace((s) => s.error);
   const saveStatus = useWorkspace((s) => s.saveStatus);
   const [left, setLeft] = useState(false);
-  const [right, setRight] = useState<'generate' | 'inspect' | null>(null);
+  const [right, setRight] = useState<'generate' | 'inspect' | 'codex' | null>(null);
   const [hand, setHand] = useState(false);
   const [viewer, setViewer] = useState<string[]>([]);
   const [help, setHelp] = useState(false);
@@ -77,6 +79,20 @@ export function App() {
     setContext(target);
   };
   const flow = useReactFlow();
+  useEffect(
+    () =>
+      window.imagine.onCodexTool((call) => {
+        void executeCanvasTool(call, (ids) => {
+          void flow.fitView({ nodes: ids.map((id) => ({ id })), padding: 0.15 });
+        })
+          .then(
+            (result) => window.imagine.codexToolResult(call.id, result),
+            (error) => window.imagine.codexToolResult(call.id, null, String(error)),
+          )
+          .catch(fail);
+      }),
+    [flow],
+  );
   const center = () =>
     flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const chooseProject = async (create: boolean) => {
@@ -500,6 +516,9 @@ export function App() {
           />
         </div>
       )}
+      <div style={{ display: right === 'codex' ? 'contents' : 'none' }}>
+        <CodexPanel close={() => setRight(null)} />
+      </div>
       {project && right === 'inspect' && (
         <aside className="panel right-panel inspector">
           <div className="panel-title">
@@ -623,6 +642,14 @@ export function App() {
             </button>
           </div>
           <nav className="toolbar" aria-label="Canvas tools">
+            <button
+              title="Codex workspace agent"
+              aria-label="Codex workspace agent"
+              className={right === 'codex' ? 'active' : ''}
+              onClick={() => setRight(right === 'codex' ? null : 'codex')}
+            >
+              Codex
+            </button>
             <button
               title="Select (V)"
               aria-label="Select"

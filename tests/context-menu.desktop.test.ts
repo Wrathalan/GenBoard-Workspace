@@ -349,3 +349,58 @@ test('appearance colors preview, persist and reset without changing board conten
     before,
   );
 });
+
+test('Codex tool bridge edits with undo and generates through the local harness', async () => {
+  const run = async (action: string, args: Record<string, unknown>) =>
+    app.evaluate(
+      async (_, input) => {
+        const t = (globalThis as any).imagineTest;
+        return t.executeCodexTool(t.snapshot().activeBoardId, input.action, input.args);
+      },
+      { action, args },
+    );
+  const created = (await run('add_text', { text: 'Agent note', x: 200, y: 200 })) as { id: string };
+  await expect(page.locator('.text-node')).toHaveText('Agent note');
+  await run('move', { ids: [created.id], dx: 24, dy: 48 });
+  await run('undo', {});
+  let snapshot = (await run('snapshot', {})) as any;
+  expect(snapshot.board.items[0].position).toEqual({ x: 200, y: 200 });
+  expect(snapshot).not.toHaveProperty('folder');
+  await run('lock', { ids: [created.id] });
+  await expect(run('edit_text', { id: created.id, text: 'no' })).rejects.toThrow('unlocked');
+  const server = await fakeComfy();
+  try {
+    await run('connect', { port: server.port });
+    snapshot = (await run('snapshot', {})) as any;
+    const template = snapshot.workflows.find((t: any) => t.id === 'sdxl-text');
+    expect(template).toBeTruthy();
+    const result = (await run('generate', {
+      templateId: template.id,
+      prompt: 'graphic mountain',
+      checkpoint: snapshot.capabilities.checkpoints[0],
+      width: 1024,
+      height: 1024,
+      count: 1,
+      seed: 123,
+      x: 500,
+      y: 200,
+    })) as any;
+    expect(result.jobs).toHaveLength(1);
+    expect(result.finalPrompt).toContain('Current request');
+    await expect
+      .poll(async () => ((await run('snapshot', {})) as any).jobs[0].state)
+      .toBe('completed');
+  } finally {
+    await server.close();
+  }
+  await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign into Codex', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'docs/screenshots/codex.png' });
+});
+
+test('installed Codex app-server initializes with isolated signed-out profile', async () => {
+  await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
+  const status = await page.evaluate(() => window.imagine.codexStatus());
+  expect(status.signedIn).toBe(false);
+  expect(status.label).toBe('Not signed in');
+});
