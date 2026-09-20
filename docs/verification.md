@@ -2,9 +2,9 @@
 
 GitHub release preparation: all 41 unit tests and all 18 Electron desktop scenarios passed in one full run. The browser integration check passed against the real hidden Electron backend, covering project creation, saving/reopening, binary image import, image serving, recent projects, and RPC errors. TypeScript checking and the production build passed.
 
-Built a fresh Windows x64 NSIS installer, `Local Imagine Workspace Setup 0.3.5.exe`. The packaged executable passed `node scripts/smoke.mjs`, including native SQLite/Sharp, text editing, context actions, recent projects, sensitive-item screenshot masking, themes, item colors, and rigid group movement. Windows reports the installer as unsigned. The installer was not installed into the user's account; the packaged payload was launched directly. SHA-256: `1c335cfd9cbd67e217fee92119121b5d3bfb54cef95fa27502f332dcd3780fa6`.
+Built a fresh Windows x64 NSIS installer, `Local Imagine Workspace Setup 0.3.5.exe`. The packaged executable passed `node scripts/smoke.mjs`, including native SQLite/Sharp, text editing, context actions, recent projects, sensitive-item screenshot masking, themes, item colors, and rigid group movement. Windows reports the installer as unsigned. The installer was not installed into the user's account; the packaged payload was launched directly. SHA-256: `be73af77e3d87a5706b61c62eb68a8fd5cf324ce9670999c1237c17b2f52853e`.
 
-The README includes four user-supplied screenshots with descriptions of board organization, local generation setup, grouped character variants, and image actions. Those example images are documentation, not generation-test evidence. Real ComfyUI inference and authenticated Codex imagegen remain unverified as described below.
+The README includes three user-supplied artwork screenshots and one synthetic test screenshot with descriptions of board organization, local generation setup, grouped character variants, and image actions. Those example images are documentation, not generation-test evidence. Real ComfyUI inference and authenticated Codex imagegen remain unverified as described below.
 
 # Version 0.3.4 - 2026-09-15
 

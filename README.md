@@ -29,7 +29,7 @@ The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `np
 
 ## Screenshots and example workflows
 
-These user-supplied screenshots show example artwork and workspace arrangements. Some show earlier interface labels; they illustrate workflows rather than prove that a generation job ran in this release. The artwork and example project are not bundled with the installer.
+These screenshots show example artwork, workspace arrangements, and a synthetic test workspace. Some show earlier interface labels; they illustrate workflows rather than prove that a generation job ran in this release. The artwork and example project are not bundled with the installer.
 
 ### Plan a complete creative board
 
@@ -39,9 +39,9 @@ This board overview brings character designs, props, and environment studies int
 
 ### Prepare local image generation
 
-![Desktop workspace showing a character reference, project library, and ComfyUI generation panel](docs/screenshots/workspace.png)
+![Desktop test workspace showing the ComfyUI generation panel](docs/screenshots/workspace.png)
 
-The left drawer holds boards and the project image library; the central canvas provides a large reference view. The right panel exposes the local ComfyUI connection, workflow, checkpoint, prompt, dimensions, output count, seed, and editable style preset. The screenshot shows **ComfyUI disconnected**, so it demonstrates the setup controls, not completed local inference. Start your existing ComfyUI installation and connect before generating.
+The project drawer holds boards and the image library; the central canvas provides space for references. The generation panel exposes the local ComfyUI connection, workflow, checkpoint, prompt, dimensions, output count, seed, and editable style preset. This screenshot uses synthetic test content and demonstrates setup controls, not completed local inference. Start your existing ComfyUI installation and connect before generating.
 
 ### Keep related references together
 
