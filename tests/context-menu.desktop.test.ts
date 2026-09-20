@@ -508,3 +508,171 @@ test('recent project opens from the welcome screen after restarting without a fo
   ).toHaveCount(0);
   expect((await fs.stat(path.join(folder, 'workspace.sqlite'))).isFile()).toBe(true);
 });
+
+test('spoilers persist, undo, and mask revealed images in safe clipboard captures', async () => {
+  await seedImages();
+  await page.locator('[data-id="a"]').click({ button: 'right' });
+  await menuitem('Mark as sensitive').click();
+  await expect(page.locator('.spoiler-node')).toHaveCount(1);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.spoiler-node')).toHaveCount(0);
+  await page.keyboard.press('Control+y');
+  await expect(page.locator('.spoiler-node')).toHaveCount(1);
+  await page.keyboard.press('Control+s');
+  await page.reload();
+  await expect(page.locator('.spoiler-node')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Reveal sensitive items', exact: true }).click();
+  await expect(page.locator('.image-node')).toHaveCount(2);
+  const node = await page.locator('[data-id="a"]').boundingBox();
+  const canvas = await page.locator('.canvas-wrap').boundingBox();
+  await page.getByRole('button', { name: 'Copy safe screenshot', exact: true }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Safe canvas screenshot copied' }),
+  ).toBeVisible();
+  const bytes = await app.evaluate(async ({ clipboard }) => {
+    for (const item of await clipboard.read()) {
+      if (item.types.includes('image/png'))
+        return [...new Uint8Array(await ((await item.getType('image/png')) as Blob).arrayBuffer())];
+    }
+    throw new Error('No screenshot on clipboard');
+  });
+  const { data, info } = await sharp(Buffer.from(bytes))
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const x = Math.round(node!.x - Math.ceil(canvas!.x) + 12);
+  const y = Math.round(node!.y - Math.ceil(canvas!.y) + 12);
+  const offset = (y * info.width + x) * info.channels;
+  expect([...data.subarray(offset, offset + 3)]).toEqual([36, 36, 36]);
+  await expect(page.locator('.image-node')).toHaveCount(2);
+  await expect(page.locator('.capturing')).toHaveCount(0);
+});
+
+test('complete themes and individual colors persist, undo and reset independently', async () => {
+  await seedImages();
+  await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
+  const colors = page.getByRole('dialog', { name: 'Customize colors' });
+  await colors.getByLabel('Color theme', { exact: true }).selectOption('Paper light');
+  await expect(page.locator('.canvas-wrap')).toHaveCSS('background-color', 'rgb(241, 240, 234)');
+  await expect(colors).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await page.screenshot({ path: 'docs/screenshots/theme-light.png' });
+  await colors.getByLabel('Toolbar background', { exact: true }).fill('#334455');
+  await expect(page.locator('.toolbar')).toHaveCSS('background-color', 'rgb(51, 68, 85)');
+  await colors.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.locator('[data-id="a"]').click({ button: 'right' });
+  await menuitem('Customize item colors').click();
+  await page.getByLabel('Item background', { exact: true }).fill('#123456');
+  await page.getByLabel('Item border', { exact: true }).fill('#ff8800');
+  await expect(page.locator('[data-id="a"] .image-node')).toHaveCSS(
+    'background-color',
+    'rgb(18, 52, 86)',
+  );
+  await expect(page.locator('[data-id="b"] .image-node')).toHaveCSS(
+    'background-color',
+    'rgba(0, 0, 0, 0)',
+  );
+  await page.getByTitle('Close inspector', { exact: true }).click();
+  await page.keyboard.press('Control+s');
+  await page.reload();
+  await expect(page.locator('[data-id="a"] .image-node')).toHaveCSS(
+    'background-color',
+    'rgb(18, 52, 86)',
+  );
+  await expect(page.locator('.toolbar')).toHaveCSS('background-color', 'rgb(51, 68, 85)');
+  await page.locator('[data-id="a"]').click({ button: 'right' });
+  await menuitem('Customize item colors').click();
+  await page.getByRole('button', { name: 'Reset item colors', exact: true }).click();
+  await expect(page.locator('[data-id="a"] .image-node')).toHaveCSS(
+    'background-color',
+    'rgba(0, 0, 0, 0)',
+  );
+  await page.getByTitle('Close inspector', { exact: true }).click();
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('[data-id="a"] .image-node')).toHaveCSS(
+    'background-color',
+    'rgb(18, 52, 86)',
+  );
+  await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
+  await colors.getByLabel('Color theme', { exact: true }).selectOption('Midnight');
+  await colors.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.locator('[data-id="a"] .image-node')).toHaveCSS(
+    'background-color',
+    'rgb(18, 52, 86)',
+  );
+  await page.screenshot({ path: 'docs/screenshots/themes.png' });
+});
+
+test('dragging grouped members preserves nested offsets across snapping, undo and reload', async () => {
+  await seedImages();
+  await page.evaluate(async () => {
+    const p = (await window.imagine.currentProject())!;
+    const b = p.boards[0];
+    b.items = [
+      { id: 'g', type: 'group', position: { x: 100, y: 100 }, width: 520, height: 360, data: {} },
+      {
+        id: 'nested',
+        type: 'group',
+        parentId: 'g',
+        position: { x: 24, y: 40 },
+        width: 210,
+        height: 290,
+        data: {},
+      },
+      ...b.items.map((i, index) => ({
+        ...i,
+        parentId: index === 0 ? 'nested' : 'g',
+        position: { x: index === 0 ? 24 : 280, y: 40 },
+      })),
+    ];
+    await window.imagine.saveBoard(b);
+  });
+  await page.reload();
+  const read = () =>
+    page.evaluate(async () => {
+      const p = (await window.imagine.currentProject())!;
+      return p.boards[0].items;
+    });
+  const before = await read();
+  const box = (await page.locator('[data-id="a"]').boundingBox())!;
+  await page.mouse.move(box.x + 60, box.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 156, box.y + 152, { steps: 12 });
+  await page.mouse.up();
+  await page.keyboard.press('Control+s');
+  const after = await read();
+  expect(after.find((i) => i.id === 'g')!.position).not.toEqual(
+    before.find((i) => i.id === 'g')!.position,
+  );
+  for (const id of ['nested', 'a', 'b'])
+    expect(after.find((i) => i.id === id)!.position).toEqual(
+      before.find((i) => i.id === id)!.position,
+    );
+  const root = after.find((i) => i.id === 'g')!;
+  expect(root.position.x).toBe(192);
+  expect(root.position.y).toBe(168);
+  await expect(page.locator('[data-id="a"] .react-flow__resize-control.handle')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+s');
+  expect(await read()).toEqual(before);
+  await page.keyboard.press('Control+y');
+  await page.keyboard.press('Control+s');
+  await page.reload();
+  expect(await read()).toEqual(after);
+  await page.locator('[data-id="a"]').click();
+  await page.locator('[data-id="b"]').click({ modifiers: ['Control'] });
+  const again = (await page.locator('[data-id="a"]').boundingBox())!;
+  await page.mouse.move(again.x + 60, again.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(again.x + 108, again.y + 104, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.press('Control+s');
+  const multi = await read();
+  expect(multi.find((i) => i.id === 'g')!.position).toEqual({ x: 240, y: 192 });
+  for (const id of ['nested', 'a', 'b'])
+    expect(multi.find((i) => i.id === id)!.position).toEqual(
+      before.find((i) => i.id === id)!.position,
+    );
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+s');
+  expect(await read()).toEqual(after);
+});

@@ -1,3 +1,31 @@
+# Version 0.3.5 - 2026-09-20
+
+GitHub release preparation: all 41 unit tests and all 18 Electron desktop scenarios passed in one full run. The browser integration check passed against the real hidden Electron backend, covering project creation, saving/reopening, binary image import, image serving, recent projects, and RPC errors. TypeScript checking and the production build passed.
+
+Built a fresh Windows x64 NSIS installer, `Local Imagine Workspace Setup 0.3.5.exe`. The packaged executable passed `node scripts/smoke.mjs`, including native SQLite/Sharp, text editing, context actions, recent projects, sensitive-item screenshot masking, themes, item colors, and rigid group movement. Windows reports the installer as unsigned. The installer was not installed into the user's account; the packaged payload was launched directly. SHA-256: `1c335cfd9cbd67e217fee92119121b5d3bfb54cef95fa27502f332dcd3780fa6`.
+
+The README includes four user-supplied screenshots with descriptions of board organization, local generation setup, grouped character variants, and image actions. Those example images are documentation, not generation-test evidence. Real ComfyUI inference and authenticated Codex imagegen remain unverified as described below.
+
+# Version 0.3.4 - 2026-09-15
+
+Rigid group positioning: 41 unit tests passed. All 18 desktop scenarios passed across the regression run and the focused rerun of snapping and grouped movement. The regression exposed guides being cleared by non-position canvas updates; the fix passed the rerun. New coverage verifies dragging nested members, multi-member selection, unchanged local offsets, grid snapping, undo/redo and reopening. Unit checks cover deduplication and locked sibling protection. Alignment and Codex move commands use the same outermost-group motion unit.
+
+Built the unsigned Windows x64 installer and passed the packaged smoke check, including dragging a grouped sensitive member and verifying that only the group position changes. Existing groups gain this behavior without a schema change. Ungroup to independently resize or reposition members. Existing browser-mode and other working-tree changes remain preserved.
+
+# Version 0.3.3 - 2026-09-15
+
+Full app palettes and per-item overrides: 39 unit tests and all 17 desktop scenarios passed. New checks cover palette completeness and validation, legacy preferences, opaque item colors, selection isolation, locked selections, reset, persistence, undo, independent theme changes, and computed UI colors. The spoiler clipboard pixel test, existing harness/recovery tests, and 500-card benchmark also passed.
+
+Built the unsigned Windows x64 installer. Packaged smoke passed, including Paper light with light native form controls and a custom opaque sensitive-cover color. Dark and light screenshots were visually inspected. Theme settings stay in local app preferences; item overrides stay in the project and do not change original image pixels. Native operating-system dialogs follow Windows settings. Pre-existing browser-mode changes remain intact and uncommitted with the working tree.
+
+# Version 0.3.2 - 2026-09-15
+
+Sensitive canvas placements: all 37 unit tests and 16 desktop scenarios passed. Coverage includes inherited group masking, selection availability, marking undo/redo and reload persistence, and a native clipboard pixel assertion proving a revealed sensitive image is opaque in the safe screenshot. The full canvas, Codex, fake-ComfyUI, recovery, and 500-card regression suite passed.
+
+Built the unsigned Windows x64 installer and passed the packaged smoke test including sensitive text marking and safe screenshot capture. The first smoke attempt selected the original card underneath its duplicate; the test now targets the visible selected card. The earlier focused desktop run found overlapping capture/snapping controls; the layout was corrected before the full passing run.
+
+Safe capture is desktop-only and includes the current canvas viewport, with other panels hidden. Browser mode supports persistent marking and manual hide/reveal. External screenshot detection is not supported. Original assets, library thumbnails, exports, and full-resolution views remain unchanged. Existing browser-mode working-tree changes were preserved. Existing real-generation acceptance limitations below still apply.
+
 # Version 0.3.1 - 2026-09-14
 
 Recent-project navigation: all 29 unit tests passed, including cache persistence, ordering/deduplication, bounded history, corrupt-cache recovery, unavailable folders, and removal without deleting files. Three targeted desktop scenarios passed: recent-project reopening after process restart with folder dialogs disabled, existing project relocation/writer locking, and in-flight job restart recovery. The full desktop suite was not repeated for this focused navigation change. The packaged smoke test passed on rerun; its first attempt encountered a transient duplicate text-node locator during the existing context-menu step.

@@ -30,12 +30,15 @@ export class CodexHarness {
       args: Record<string, unknown>,
     ) => Promise<unknown>,
     private rpcFactory: typeof createRpc = createRpc,
+    private sendEvent?: (event: CodexEvent) => void,
   ) {}
   get busy() {
     return this.running;
   }
   private emit(type: CodexEvent['type'], text: string, extra: Partial<CodexEvent> = {}) {
-    if (!this.win.isDestroyed()) this.win.webContents.send('codex:event', { type, text, ...extra });
+    const event = { type, text, ...extra };
+    if (this.sendEvent) this.sendEvent(event);
+    else if (!this.win.isDestroyed()) this.win.webContents.send('codex:event', event);
   }
   private executable() {
     const saved = path.join(this.root, 'executable.txt');

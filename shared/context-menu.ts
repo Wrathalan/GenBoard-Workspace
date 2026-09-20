@@ -1,8 +1,11 @@
+import { motionRoots, motionLocks } from './group-motion';
 import type { CanvasItem, Job, Point } from './types';
 
 export type SelectionAction = 'duplicate' | 'group' | 'ungroup' | 'align' | 'lock' | 'remove';
 export type MenuAction =
   | SelectionAction
+  | 'spoiler'
+  | 'colors'
   | 'import'
   | 'paste'
   | 'text'
@@ -57,12 +60,14 @@ export function selectionPermissions(
   const locked = all.some((i) => descendants.has(i.id) && i.data.locked);
   const noJobs = all.filter((i) => descendants.has(i.id)).every((i) => i.type !== 'job');
   const editable = items.length > 0 && !locked;
-  const nestedSelection = items.some((i) => i.parentId && ids.has(i.parentId));
+  const roots = motionRoots(all);
+  const units = new Set(items.map((i) => roots.get(i.id)));
+  const movementLocked = [...motionLocks(all, roots)].some((id) => units.has(id));
   return {
     duplicate: editable && noJobs,
     group: editable && noJobs && items.every((i) => !i.parentId),
     ungroup: editable && items.every((i) => i.type === 'group'),
-    align: editable && noJobs && items.length > 1 && !nestedSelection,
+    align: units.size > 1 && !movementLocked,
     lock: items.length > 0 && noJobs,
     remove:
       editable &&
@@ -100,6 +105,12 @@ export function contextEntries(
     add('redo', 'Redo', 2, redo, 'Ctrl+Y');
     return entries;
   }
+  add(
+    'spoiler',
+    items.every((i) => i.data.sensitive) ? 'Unmark sensitive' : 'Mark as sensitive',
+    0,
+  );
+  add('colors', 'Customize item colors', 0);
   const one = items.length === 1 ? items[0] : undefined;
   if (one?.type === 'job') {
     const j = jobs.find((j) => j.id === one.data.jobId);

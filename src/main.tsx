@@ -7,6 +7,10 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { App } from './App';
 import '@xyflow/react/dist/style.css';
 import './style.css';
+import { installBrowserAPI, protectBrowserChanges } from './browser-api';
+import { flush, hasUnsavedChanges } from './store';
+installBrowserAPI();
+protectBrowserChanges(hasUnsavedChanges, flush);
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ReactFlowProvider>

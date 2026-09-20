@@ -1,0 +1,48 @@
+import type { WorkspaceAPI } from './types';
+export type Invoke = (channel: string, ...args: any[]) => Promise<any>;
+export type Subscribe = (channel: string, callback: (...args: any[]) => void) => () => void;
+export function createWorkspaceAPI(
+  invoke: Invoke,
+  subscribe: Subscribe,
+  finishClose: () => void,
+): WorkspaceAPI {
+  return {
+    captureCanvas: (rect) => invoke('canvas:capture', rect),
+    recentProjects: () => invoke('project:recent'),
+    openRecentProject: (id) => invoke('project:open-recent', id),
+    forgetRecentProject: (id) => invoke('project:forget-recent', id),
+    codexStatus: () => invoke('codex:status'),
+    codexLogin: () => invoke('codex:login'),
+    codexLogout: () => invoke('codex:logout'),
+    codexChoose: () => invoke('codex:choose'),
+    codexRun: (board, prompt, options) => invoke('codex:run', board, prompt, options),
+    codexNewChat: () => invoke('codex:new-chat'),
+    codexStop: () => invoke('codex:stop'),
+    codexToolResult: (id, result, error) => invoke('codex:tool-result', id, result, error),
+    onCodexEvent: (callback) => subscribe('codex:event', callback),
+    onCodexTool: (callback) => subscribe('codex:tool', callback),
+    chooseProject: (create) => invoke('project:choose', create),
+    currentProject: () => invoke('project:current'),
+    saveBoard: (board, known) => invoke('board:save', board, known),
+    createBoard: (name) => invoke('board:create', name),
+    activateBoard: (id) => invoke('board:activate', id),
+    importImages: (files) => invoke('asset:import', files),
+    clipboardImage: () => invoke('asset:clipboard'),
+    copyAssetImage: (id) => invoke('asset:copy-image', id),
+    exportAsset: (id) => invoke('asset:export', id),
+    revealAsset: (id) => invoke('asset:reveal', id),
+    saveStyle: (style) => invoke('style:save', style),
+    importWorkflow: () => invoke('workflow:import'),
+    saveTemplate: (t) => invoke('workflow:save', t),
+    verifyOffline: (templateId, jobId) => invoke('workflow:verify-offline', templateId, jobId),
+    connect: (port) => invoke('comfy:connect', port),
+    validateTemplate: (t) => invoke('workflow:validate', t),
+    generate: (request) => invoke('job:generate', request),
+    cancelJob: (id) => invoke('job:cancel', id),
+    retryJob: (id) => invoke('job:retry', id),
+    reconcile: () => invoke('job:reconcile'),
+    onUpdate: (callback) => subscribe('project:update', callback),
+    onClosing: (callback) => subscribe('app:closing', callback),
+    finishClose,
+  };
+}

@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "checkedAt": "2026-09-14T19:32:59.208Z",
+  "checkedAt": "2026-09-20T17:49:25.923Z",
   "electron": "44.3.0",
   "checks": [
     "Packaged executable launch",
@@ -12,6 +12,9 @@
     "Generation panel",
     "Codex panel and sign-in entry point",
     "Right-click context menu and duplicate action",
+    "Sensitive marking and safe screenshot clipboard capture",
+    "Light theme and per-item sensitive cover override",
+    "Rigid movement from a grouped member",
     "Clean shutdown"
   ]
 }

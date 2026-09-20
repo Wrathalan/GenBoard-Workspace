@@ -59,6 +59,60 @@ try {
     !(await page.evaluate(() => window.imagine.recentProjects())).some((r) => r.folder === folder)
   )
     throw new Error('Packaged recent-project cache failed');
+  if (await page.getByRole('complementary', { name: 'Codex agent panel' }).isVisible())
+    await page.getByRole('button', { name: 'Close Codex', exact: true }).click();
+  await page.locator('.react-flow__node.selected .text-node').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Mark as sensitive', exact: true }).click();
+  await page.locator('.spoiler-node').first().waitFor();
+  await page.getByRole('button', { name: 'Copy safe screenshot', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'Safe canvas screenshot copied' }).waitFor();
+  await page.screenshot({ path: 'docs/screenshots/spoilers.png' });
+  await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
+  const colors = page.getByRole('dialog', { name: 'Customize colors' });
+  await colors.getByLabel('Color theme', { exact: true }).selectOption('Paper light');
+  if ((await page.evaluate(() => document.documentElement.style.colorScheme)) !== 'light')
+    throw new Error('Light theme color scheme failed');
+  await page.screenshot({ path: 'docs/screenshots/theme-light.png' });
+  await colors.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.locator('.spoiler-node').first().click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Customize item colors', exact: true }).click();
+  await page.getByLabel('Item sensitive cover', { exact: true }).fill('#203040');
+  if (
+    (await page
+      .locator('.spoiler-node')
+      .first()
+      .evaluate((el) => getComputedStyle(el).backgroundColor)) !== 'rgb(32, 48, 64)'
+  )
+    throw new Error('Packaged item color override failed');
+  await page.getByTitle('Close inspector', { exact: true }).click();
+  await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
+  await colors.getByRole('button', { name: 'Reset colors', exact: true }).click();
+  await colors.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Control+g');
+  await page.keyboard.press('Control+s');
+  const groupedBefore = (await page.evaluate(() => window.imagine.currentProject())).boards[0]
+    .items;
+  const group = groupedBefore.find((i) => i.type === 'group');
+  if (!group) throw new Error('Packaged grouping failed');
+  const member = await page.locator('.spoiler-node').first().boundingBox();
+  await page.mouse.move(member.x + 40, member.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(member.x + 112, member.y + 88, { steps: 8 });
+  await page.mouse.up();
+  await page.keyboard.press('Control+s');
+  const groupedAfter = (await page.evaluate(() => window.imagine.currentProject())).boards[0].items;
+  if (
+    JSON.stringify(groupedAfter.find((i) => i.id === group.id).position) ===
+    JSON.stringify(group.position)
+  )
+    throw new Error('Dragging a member did not move the group');
+  for (const original of groupedBefore.filter((i) => i.parentId))
+    if (
+      JSON.stringify(groupedAfter.find((i) => i.id === original.id).position) !==
+      JSON.stringify(original.position)
+    )
+      throw new Error('Grouped member offsets changed');
   await fs.writeFile(
     'docs/packaged-smoke.json',
     JSON.stringify(
@@ -76,6 +130,9 @@ try {
           'Generation panel',
           'Codex panel and sign-in entry point',
           'Right-click context menu and duplicate action',
+          'Sensitive marking and safe screenshot clipboard capture',
+          'Light theme and per-item sensitive cover override',
+          'Rigid movement from a grouped member',
           'Clean shutdown',
         ],
       },

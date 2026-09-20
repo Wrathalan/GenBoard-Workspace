@@ -1,10 +1,14 @@
 # Local Imagine Workspace
 
+Source repository: **GenBoard Workspace**. The Windows application is currently named **Local Imagine Workspace**.
+
 A standalone Windows desktop canvas for local images, notes, reference groups, and ComfyUI generation. Projects and ComfyUI image inference stay on your computer. The optional Codex agent uses an online Codex account; manual canvas operation remains offline. There is no application telemetry, remote font, or runtime CDN dependency.
 
 ## Run or install
 
-The unsigned Windows x64 installer is written to `release/Local Imagine Workspace Setup 0.3.1.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+[Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
+
+Building locally writes the installer to `release/Local Imagine Workspace Setup 0.3.5.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -22,6 +26,50 @@ npm run package
 ```
 
 The lockfile pins dependencies. Native SQLite is rebuilt for Electron during `npm ci`. If you change Electron versions, run `npm run postinstall` before testing or packaging. Packaging produces an unsigned, per-user NSIS installer; no administrator installation is required.
+
+## Screenshots and example workflows
+
+These user-supplied screenshots show example artwork and workspace arrangements. Some show earlier interface labels; they illustrate workflows rather than prove that a generation job ran in this release. The artwork and example project are not bundled with the installer.
+
+### Plan a complete creative board
+
+![Creative board with character costumes, sword references, and four autumn environment views](docs/screenshots/creative-board-overview.jpg)
+
+This board overview brings character designs, props, and environment studies into one visual reference sheet. A labeled group collects four views of the same autumn settlement: valley overview, town square, riverside bridge, and reverse perimeter. Image cards, notes, and group frames let you organize a project by subject and compare visual continuity across shots. This overview is supplied as a board example, without the application's surrounding controls.
+
+### Prepare local image generation
+
+![Desktop workspace showing a character reference, project library, and ComfyUI generation panel](docs/screenshots/workspace.png)
+
+The left drawer holds boards and the project image library; the central canvas provides a large reference view. The right panel exposes the local ComfyUI connection, workflow, checkpoint, prompt, dimensions, output count, seed, and editable style preset. The screenshot shows **ComfyUI disconnected**, so it demonstrates the setup controls, not completed local inference. Start your existing ComfyUI installation and connect before generating.
+
+### Keep related references together
+
+![Three character costume variants inside a named group with the Inspector open](docs/screenshots/character-group-inspector.png)
+
+Three costume variants are arranged inside a named group. The Inspector provides group naming, duplication, alignment, grouping, locking, and deletion; Grid and Guides controls help keep the layout orderly. In this release, dragging any member moves the whole outermost group while preserving spacing. Ungroup first to reposition or resize individual members.
+
+### Work directly from an image
+
+![Image context menu offering full-resolution viewing, reference assignment, copy, export, grouping, and locking](docs/screenshots/image-actions.png)
+
+Right-click an image for full-resolution viewing, reference assignment, clipboard copy, original-file export, and Explorer access. The same menu offers duplication, grouping, locking, fitting the selection, and deletion. These actions keep common reference-board tasks close to the artwork. Current versions also include sensitive-item and item-color controls described below.
+
+## Open in a browser
+
+Run `npm run browser` from this folder, then open [Local Imagine Workspace](http://127.0.0.1:4317/) in the Codex browser or another browser on this computer. After a build, `npm run start:browser` starts it directly. The Electron backend runs with its window hidden and keeps using the existing project store, image tools, ComfyUI, and Codex integration.
+
+To open an existing project on startup:
+
+```powershell
+npm run browser -- --project="C:\Projects\Example\Imagine"
+```
+
+**Open project** and **Create project** accept a full folder path in the browser. Image import, export, clipboard, executable selection, and Explorer actions use this computer's existing native services. Recent projects and the separate Codex sign-in are shared with the desktop version. Close a desktop instance before opening the same project in browser mode.
+
+The server listens only on `127.0.0.1`. It checks the host, origin, and an ephemeral session for requests, allows one editing tab, and serves only the built application and registered project images. Other websites and computers cannot use it as a filesystem API. Desktop mode retains its original renderer network restriction.
+
+Wait for **Saved locally** before closing or refreshing a tab. The browser warns while board changes are still saving. Closing a tab leaves the local server and generation jobs running; a lost browser connection stops an active Codex turn, and requests are never automatically replayed. Reopen the page to reconnect. Stop the server with **Ctrl+C** in its terminal. Set `IMAGINE_BROWSER_PORT` to use a different port.
 
 ## Recent projects (0.3.1)
 
@@ -117,3 +165,21 @@ The React/Zustand renderer uses React Flow for positioning, selection, and viewp
 The schema is version 1. Newer unsupported project versions are refused. Future migrations must be explicit. Filesystem reads use asset IDs and checked project-relative paths, including junction/symlink containment; the renderer never supplies an arbitrary filesystem path.
 
 Codex Agent mode calls the same board and provider services through registered workspace tools. No simulated generation is presented in the production UI.
+
+### Sensitive items and safe screenshots
+
+Right-click an image, text card, group, or selection and choose **Mark as sensitive**. The board stores these markings locally with undo/redo. Marked cards display opaque placeholders by default; marked groups cover descendants, which remain sensitive after ungrouping. Marking applies to canvas placements, not every copy of the same asset. Originals are unchanged.
+
+Use **Reveal sensitive items** for temporary viewing, or **Hide sensitive items** before taking an external screenshot. In the desktop app, **Copy safe screenshot** copies the current canvas viewport as PNG, always covering marked items and excluding chat, inspector, menus, and other overlapping panels. It restores the previous reveal state afterward. Browser mode supports marking and hiding; the safe clipboard capture button is desktop-only.
+
+Windows and third-party screenshot tools cannot be detected. Library thumbnails, full-resolution views, exported originals, and images sent to generation retain their content; this feature is a canvas presentation control, not encryption or access control.
+
+### Full themes and item colors (0.3.3)
+
+Open **Customize colors** (palette button) to select Original dark, Midnight, Plum, or Paper light. Edit any theme color to make a custom palette. Canvas, panels, toolbars, menus, dialogs, inputs, chat, status colors, image viewer, shadows, text/group/generation cards, and sensitive covers have separate controls. App colors are remembered on this computer. Native Windows dialogs follow Windows appearance.
+
+Right-click a card or selection and choose **Customize item colors**, or use the Inspector. Override its background, text (where applicable), border, selection highlight, and sensitive-cover colors. Mixed selections show Mixed; changes apply to every selected item. Unlock all selected items first. **Reset item colors** returns that selection to theme defaults. Item overrides support undo/redo, autosave, duplication and project relocation, and survive theme changes. Image frames/backgrounds change; original image pixels do not. Sensitive covers remain opaque.
+
+### Rigid groups (0.3.4)
+
+Drag any group member to move the entire outermost group. Nested groups retain their internal spacing. Selecting multiple members never moves the group twice. Snapping, alignment, and Codex move commands operate on whole groups; a locked member prevents movement of its group. Grouped members cannot be resized independently. Ungroup first to rearrange or resize individual members. Dragging supports undo/redo and autosave, and group layout survives reopening.

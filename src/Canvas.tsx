@@ -14,10 +14,15 @@ import { Grid3X3, ScanLine, ImageIcon, LoaderCircle, Lock } from 'lucide-react';
 import { useWorkspace, fail, flush } from './store';
 import type { CanvasItem, ItemData, Point, Viewport } from '../shared/types';
 import { contextSelection, isRightDrag, type ContextTarget } from '../shared/context-menu';
+import { motionRoots, motionLocks, rigidPositions } from '../shared/group-motion';
+import { itemColorVariables } from '../shared/appearance';
+import { sensitiveIds } from '../shared/spoilers';
 import { GRID_SIZE, snapPositions, type SnapGuide } from '../shared/snapping';
-type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job'>;
+type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job' | 'spoiler'>;
 export const assetUrl = (id: string, original = false) =>
-  `imagine://${id}/${original ? 'original' : 'thumbnail'}`;
+  window.location.protocol === 'file:'
+    ? `imagine://${id}/${original ? 'original' : 'thumbnail'}`
+    : `/media/${encodeURIComponent(id)}/${original ? 'original' : 'thumbnail'}`;
 const Resize = ({
   id,
   selected,
@@ -28,19 +33,22 @@ const Resize = ({
   selected?: boolean;
   locked?: boolean;
   ratio?: boolean;
-}) => (
-  <NodeResizer
-    isVisible={!!selected && !locked}
-    keepAspectRatio={ratio}
-    minWidth={64}
-    minHeight={48}
-    onResizeStart={() => useWorkspace.getState().checkpoint()}
-    onResizeEnd={() => {
-      const s = useWorkspace.getState();
-      if (s.board) s.change(s.board.items, false);
-    }}
-  />
-);
+}) => {
+  const grouped = useWorkspace((s) => !!s.board?.items.find((i) => i.id === id)?.parentId);
+  return (
+    <NodeResizer
+      isVisible={!!selected && !locked && !grouped}
+      keepAspectRatio={ratio}
+      minWidth={64}
+      minHeight={48}
+      onResizeStart={() => useWorkspace.getState().checkpoint()}
+      onResizeEnd={() => {
+        const s = useWorkspace.getState();
+        if (s.board) s.change(s.board.items, false);
+      }}
+    />
+  );
+};
 const ImageNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
   const name = useWorkspace((s) => s.project?.assets.find((a) => a.id === data.assetId)?.name);
   return (
@@ -113,7 +121,18 @@ const JobNode = memo(({ data }: NodeProps<CanvasNode>) => {
     </div>
   );
 });
-const nodeTypes = { image: ImageNode, text: TextNode, group: GroupNode, job: JobNode };
+const SpoilerNode = memo(({ id, selected }: NodeProps<CanvasNode>) => (
+  <div className="spoiler-node" aria-label="Sensitive item hidden">
+    <span>Sensitive</span>
+  </div>
+));
+const nodeTypes = {
+  image: ImageNode,
+  text: TextNode,
+  group: GroupNode,
+  job: JobNode,
+  spoiler: SpoilerNode,
+};
 export function Canvas({
   hand,
   inspect,
@@ -125,9 +144,23 @@ export function Canvas({
   openContext: (target: ContextTarget) => void;
   closeContext: () => void;
 }) {
+  const [revealed, setRevealed] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [captureMessage, setCaptureMessage] = useState('');
   const board = useWorkspace((s) => s.board);
+  useEffect(() => {
+    setRevealed(false);
+    setCaptureMessage('');
+  }, [board?.id]);
+  const hidden = useMemo(() => sensitiveIds(board?.items || []), [board?.items]);
   const selected = useWorkspace((s) => s.selected);
   const flow = useReactFlow();
+  const dragging = useRef(false);
+  const blockedMotion = useMemo(() => {
+    const roots = motionRoots(board?.items || []);
+    const locks = motionLocks(board?.items || [], roots);
+    return new Set([...roots].filter(([, root]) => locks.has(root)).map(([id]) => id));
+  }, [board?.items]);
   const [grid, setGrid] = useState(() => localStorage.getItem('imagine.snapGrid') !== 'false');
   const [alignment, setAlignment] = useState(
     () => localStorage.getItem('imagine.snapAlignment') !== 'false',
@@ -173,38 +206,46 @@ export function Canvas({
     () =>
       (board?.items || []).map((i) => ({
         ...i,
-        style: { width: i.width, height: i.height },
+        type: hidden.has(i.id) && (!revealed || capturing) ? 'spoiler' : i.type,
+        style: { width: i.width, height: i.height, ...itemColorVariables(i.data.colors) },
         selected: selected.includes(i.id),
-        draggable: !i.data.locked && i.type !== 'job',
+        draggable: !blockedMotion.has(i.id),
         selectable: true,
         deletable: false,
         zIndex: i.type === 'group' ? -1 : 0,
       })),
-    [board?.items, selected],
+    [board?.items, selected, hidden, revealed, capturing, blockedMotion],
   );
   const changes = useCallback(
     (changes: NodeChange<CanvasNode>[]) => {
       const s = useWorkspace.getState();
       if (!s.board) return;
       const proposed = new Map<string, Point>();
-      for (const c of changes)
-        if (c.type === 'position' && c.position && c.dragging !== undefined)
-          proposed.set(c.id, c.position);
-      if (proposed.size) {
-        const snapped = snapPositions(
-          s.board.items,
-          proposed,
-          s.board.viewport.zoom,
-          grid,
-          alignment,
-        );
-        changes = changes.map((c) =>
-          c.type === 'position' && snapped.positions.has(c.id)
-            ? { ...c, position: snapped.positions.get(c.id)! }
-            : c,
-        );
-        setGuides(changes.some((c) => c.type === 'position' && c.dragging) ? snapped.guides : []);
+      for (const c of changes) {
+        if (c.type !== 'position' || !c.position) continue;
+        // Pointer release repeats cached child-relative coordinates from the last drag tick.
+        if (dragging.current && c.dragging === false) continue;
+        if (c.dragging === undefined && s.board.items.find((i) => i.id === c.id)?.parentId)
+          continue;
+        proposed.set(c.id, c.position);
       }
+      const rigid = rigidPositions(s.board.items, proposed);
+      const snapped = snapPositions(s.board.items, rigid, s.board.viewport.zoom, grid, alignment);
+      const motion = [...snapped.positions].filter(([id, p]) => {
+        const old = s.board!.items.find((i) => i.id === id)!;
+        return old.position.x !== p.x || old.position.y !== p.y;
+      });
+      if (
+        motion.length &&
+        !dragging.current &&
+        changes.some((c) => c.type === 'position' && c.dragging === false)
+      )
+        s.checkpoint();
+      changes = changes.filter((c) => c.type !== 'position');
+      changes.push(
+        ...motion.map(([id, position]) => ({ type: 'position' as const, id, position })),
+      );
+      if (dragging.current && proposed.size) setGuides(snapped.guides);
       const selection = new Set(s.selected);
       let items = s.board.items;
       let mutated = false;
@@ -216,7 +257,12 @@ export function Canvas({
           items = items.map((i) => (i.id === c.id ? { ...i, position: c.position! } : i));
           mutated = true;
         }
-        if (c.type === 'dimensions' && c.dimensions && c.resizing) {
+        if (
+          c.type === 'dimensions' &&
+          c.dimensions &&
+          c.resizing &&
+          !s.board.items.find((i) => i.id === c.id)?.parentId
+        ) {
           items = items.map((i) => (i.id === c.id ? { ...i, ...c.dimensions } : i));
           mutated = true;
         }
@@ -246,7 +292,7 @@ export function Canvas({
   };
   return (
     <div
-      className="canvas-wrap"
+      className={`canvas-wrap${capturing ? ' capturing' : ''}`}
       tabIndex={-1}
       onPointerDownCapture={(e) => {
         if (
@@ -337,10 +383,22 @@ export function Canvas({
         defaultViewport={board?.viewport}
         viewport={board?.viewport}
         onViewportChange={(v) => useWorkspace.getState().viewport(v)}
-        onNodeDragStart={() => useWorkspace.getState().checkpoint()}
-        onSelectionDragStart={() => useWorkspace.getState().checkpoint()}
-        onNodeDragStop={() => setGuides([])}
-        onSelectionDragStop={() => setGuides([])}
+        onNodeDragStart={() => {
+          dragging.current = true;
+          useWorkspace.getState().checkpoint();
+        }}
+        onSelectionDragStart={() => {
+          dragging.current = true;
+          useWorkspace.getState().checkpoint();
+        }}
+        onNodeDragStop={() => {
+          dragging.current = false;
+          setGuides([]);
+        }}
+        onSelectionDragStop={() => {
+          dragging.current = false;
+          setGuides([]);
+        }}
         onNodeDoubleClick={(_, n) => {
           if (n.type === 'image') inspect([n.data.assetId!]);
         }}
@@ -364,6 +422,46 @@ export function Canvas({
       </ReactFlow>
       {board && (
         <>
+          <div className="spoiler-controls">
+            <button
+              aria-pressed={revealed}
+              disabled={capturing}
+              onClick={() => setRevealed(!revealed)}
+              title="Sensitive items are covered by default. Revealing affects this session only."
+            >
+              {revealed ? 'Hide sensitive items' : 'Reveal sensitive items'}
+            </button>
+            {window.location.protocol === 'file:' && (
+              <button
+                disabled={capturing}
+                onClick={async () => {
+                  setCapturing(true);
+                  setCaptureMessage('');
+                  closeContext();
+                  try {
+                    await new Promise<void>((resolve) =>
+                      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+                    );
+                    const r = document.querySelector('.canvas-wrap')!.getBoundingClientRect();
+                    await window.imagine.captureCanvas({
+                      x: Math.ceil(r.x),
+                      y: Math.ceil(r.y),
+                      width: Math.floor(r.width),
+                      height: Math.floor(r.height),
+                    });
+                    setCaptureMessage('Safe canvas screenshot copied');
+                  } catch (e) {
+                    fail(e);
+                  } finally {
+                    setCapturing(false);
+                  }
+                }}
+              >
+                Copy safe screenshot
+              </button>
+            )}
+            <span role="status">{captureMessage}</span>
+          </div>
           <div className="snap-controls" role="toolbar" aria-label="Snapping controls">
             <button
               title="Snap to 24 px grid"

@@ -265,7 +265,7 @@ export class JobService {
             position: { x: anchor.x + index * 260, y: anchor.y },
             width: 240,
             height: (240 * a.height) / a.width,
-            data: { assetId: a.id, jobId: j.id },
+            data: { assetId: a.id, jobId: j.id, sensitive: placeholder?.data.sensitive, colors: placeholder?.data.colors },
           });
         for (const source of j.sourceIds)
           this.store.db

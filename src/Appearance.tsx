@@ -1,37 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Palette, X } from 'lucide-react';
-export const defaultColors = {
-  canvas: '#111110',
-  grid: '#535448',
-  guides: '#c6d9aa',
-  selection: '#bccdaa',
-  accent: '#c6d9aa',
-  surface: '#191917',
-  text: '#e7e6e2',
-  cardText: '#dadbd2',
-  group: '#9ba68d',
-};
-type Colors = typeof defaultColors;
-const labels: Record<keyof Colors, string> = {
-  canvas: 'Canvas background',
-  grid: 'Grid dots',
-  guides: 'Alignment guides',
-  selection: 'Selection highlights',
-  accent: 'Interface accent',
-  surface: 'Panels and toolbars',
-  text: 'Interface text',
-  cardText: 'Text cards',
-  group: 'Group frames',
-};
+import {
+  defaultColors,
+  normalizeColors,
+  colorSections,
+  themes,
+  type Colors,
+} from '../shared/appearance';
+export { defaultColors } from '../shared/appearance';
 export function readColors(): Colors {
   try {
-    const saved = JSON.parse(localStorage.getItem('imagine.colors') || '{}');
-    return Object.fromEntries(
-      Object.entries(defaultColors).map(([key, value]) => [
-        key,
-        typeof saved?.[key] === 'string' && /^#[0-9a-f]{6}$/i.test(saved[key]) ? saved[key] : value,
-      ]),
-    ) as Colors;
+    return normalizeColors(JSON.parse(localStorage.getItem('imagine.colors') || '{}'));
   } catch {
     return { ...defaultColors };
   }
@@ -42,7 +21,10 @@ export function Appearance() {
   useEffect(() => {
     for (const [key, value] of Object.entries(colors))
       document.documentElement.style.setProperty(`--color-${key}`, value);
+    const rgb = colors.surface.slice(1).match(/../g)!.map(value => parseInt(value, 16));
+    document.documentElement.style.colorScheme = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 140 ? 'light' : 'dark';
     localStorage.setItem('imagine.colors', JSON.stringify(colors));
+    window.dispatchEvent(new Event('imagine-colors-changed'));
   }, [colors]);
   return (
     <>
@@ -78,17 +60,43 @@ export function Appearance() {
           </button>
         </div>
         <p>Preview changes instantly. Saved on this computer for all projects.</p>
-        {Object.entries(labels).map(([key, label]) => (
-          <label className="color-row" key={key}>
-            <span>{label}</span>
-            <input
-              type="color"
-              aria-label={label}
-              value={colors[key as keyof Colors]}
-              onChange={(e) => setColors({ ...colors, [key]: e.target.value })}
-            />
-            <code>{colors[key as keyof Colors]}</code>
-          </label>
+        <label className="theme-picker">
+          Theme
+          <select
+            aria-label="Color theme"
+            value={
+              Object.keys(themes).find(
+                (name) => JSON.stringify(themes[name]) === JSON.stringify(colors),
+              ) || 'Custom'
+            }
+            onChange={(e) => {
+              if (themes[e.target.value]) setColors({ ...themes[e.target.value] });
+            }}
+          >
+            <option value="Custom" disabled>
+              Custom
+            </option>
+            {Object.keys(themes).map((name) => (
+              <option key={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+        {Object.entries(colorSections).map(([section, labels]) => (
+          <details key={section} open>
+            <summary>{section}</summary>
+            {Object.entries(labels).map(([key, label]) => (
+              <label className="color-row" key={key}>
+                <span>{label}</span>
+                <input
+                  type="color"
+                  aria-label={label}
+                  value={colors[key as keyof Colors]}
+                  onChange={(e) => setColors({ ...colors, [key]: e.target.value })}
+                />
+                <code>{colors[key as keyof Colors]}</code>
+              </label>
+            ))}
+          </details>
         ))}
         <footer>
           <button onClick={() => setColors({ ...defaultColors })}>Reset colors</button>

@@ -1,4 +1,6 @@
+import { motionRoots, motionLocks } from '../shared/group-motion';
 import { create } from 'zustand';
+import { sensitiveIds } from '../shared/spoilers';
 import type { Asset, Board, CanvasItem, Project, Viewport, WorkspaceAPI } from '../shared/types';
 import { absolutePosition, duplicateItems, History } from '../shared/board';
 declare global {
@@ -10,6 +12,8 @@ const history = new History<CanvasItem[]>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 let saves = Promise.resolve();
 let dirty = false;
+let pendingSaves = 0;
+export const hasUnsavedChanges = () => dirty || pendingSaves > 0;
 type State = {
   project: Project | null;
   board: Board | null;
@@ -143,7 +147,12 @@ export const useWorkspace = create<State>((set, get) => ({
       .filter((i) => !ids.has(i.id))
       .map((i) =>
         i.parentId && ids.has(i.parentId)
-          ? { ...i, parentId: undefined, position: absolutePosition(i, s.board!.items) }
+          ? {
+              ...i,
+              data: { ...i.data, sensitive: sensitiveIds(s.board!.items).has(i.id) },
+              parentId: undefined,
+              position: absolutePosition(i, s.board!.items),
+            }
           : i,
       );
     get().change(remaining);
@@ -197,7 +206,12 @@ export const useWorkspace = create<State>((set, get) => ({
         .filter((i) => !ids.has(i.id))
         .map((i) =>
           i.parentId && ids.has(i.parentId)
-            ? { ...i, parentId: undefined, position: absolutePosition(i, s.board!.items) }
+            ? {
+                ...i,
+                data: { ...i.data, sensitive: sensitiveIds(s.board!.items).has(i.id) },
+                parentId: undefined,
+                position: absolutePosition(i, s.board!.items),
+              }
             : i,
         ),
     );
@@ -205,7 +219,10 @@ export const useWorkspace = create<State>((set, get) => ({
   align: () => {
     const s = get();
     if (!s.board) return;
-    const items = s.board.items.filter((i) => s.selected.includes(i.id) && !i.data.locked);
+    const roots = motionRoots(s.board.items);
+    const ids = new Set(s.selected.map((id) => roots.get(id)));
+    if ([...motionLocks(s.board.items, roots)].some((id) => ids.has(id))) return;
+    const items = s.board.items.filter((i) => ids.has(i.id));
     if (!items.length) return;
     const y = Math.min(...items.map((i) => absolutePosition(i, s.board!.items).y));
     get().change(
@@ -266,16 +283,18 @@ export async function flush() {
         ?.items.filter((i) => i.data.jobId)
         .map((i) => i.id) || [];
     dirty = false;
+    pendingSaves++;
     saves = saves
       .catch(() => {})
       .then(() => window.imagine.saveBoard(snapshot, known))
-      .then(() => {
-        useWorkspace.setState({ saveStatus: 'Saved locally' });
-      })
       .catch((e) => {
         dirty = true;
         fail(e);
         throw e;
+      })
+      .finally(() => {
+        pendingSaves--;
+        if (!dirty && pendingSaves === 0) useWorkspace.setState({ saveStatus: 'Saved locally' });
       });
   }
   await saves;

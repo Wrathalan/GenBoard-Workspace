@@ -1,3 +1,4 @@
+import { motionRoots, motionLocks } from '../shared/group-motion';
 import { useWorkspace, flush } from './store';
 import { selectionPermissions } from '../shared/context-menu';
 import type { WorkspaceToolCall } from '../shared/codex';
@@ -120,34 +121,15 @@ export async function executeCanvasTool(call: WorkspaceToolCall, fit: (ids: stri
     return { done: true };
   }
   if (call.action === 'move') {
-    const locked = (i: (typeof chosen)[number]): boolean =>
-      !!i.data.locked ||
-      !!(
-        i.parentId &&
-        b.items.find((p) => p.id === i.parentId) &&
-        locked(b.items.find((p) => p.id === i.parentId)!)
-      );
-    if (chosen.some((i) => locked(i) || i.type === 'job'))
-      throw new Error('Selection contains a locked card or job.');
-    const moving = new Set(ids);
-    let expanded = true;
-    while (expanded) {
-      expanded = false;
-      for (const i of b.items)
-        if (i.parentId && moving.has(i.parentId) && !moving.has(i.id)) {
-          moving.add(i.id);
-          expanded = true;
-        }
-    }
-    if (b.items.some((i) => moving.has(i.id) && i.data.locked))
-      throw new Error('Group contains a locked card.');
+    const roots = motionRoots(b.items);
+    const moving = new Set(ids.map((id) => roots.get(id as string)));
+    if ([...motionLocks(b.items, roots)].some((id) => moving.has(id)))
+      throw new Error('A selected group contains a locked card or job.');
     const dx = number(a.dx),
       dy = number(a.dy);
     s.change(
       b.items.map((i) =>
-        ids.includes(i.id) && !(i.parentId && moving.has(i.parentId))
-          ? { ...i, position: { x: i.position.x + dx, y: i.position.y + dy } }
-          : i,
+        moving.has(i.id) ? { ...i, position: { x: i.position.x + dx, y: i.position.y + dy } } : i,
       ),
     );
   } else {

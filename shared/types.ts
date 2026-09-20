@@ -5,6 +5,8 @@ export type ItemData = {
   text?: string;
   label?: string;
   locked?: boolean;
+  sensitive?: boolean;
+  colors?: import('./appearance').ItemColors;
   jobId?: string;
 };
 export type CanvasItem = {
@@ -140,6 +142,7 @@ export interface WorkspaceAPI {
   importImages(files?: { name: string; bytes: Uint8Array }[]): Promise<Asset[]>;
   clipboardImage(): Promise<Asset | null>;
   copyAssetImage(assetId: string): Promise<void>;
+  captureCanvas(rect: { x: number; y: number; width: number; height: number }): Promise<void>;
   exportAsset(assetId: string): Promise<boolean>;
   revealAsset(assetId: string): Promise<void>;
   saveStyle(style: string): Promise<void>;

@@ -1,6 +1,6 @@
 {
   "name": "local-imagine-workspace",
-  "version": "0.3.1",
+  "version": "0.3.5",
   "private": true,
   "description": "An offline creative canvas with a local ComfyUI harness",
   "author": "Local Imagine Workspace",
@@ -12,7 +12,10 @@
     "test": "vitest run",
     "test:desktop": "npm run build && playwright test",
     "package": "npm run build && electron-builder --win nsis --x64",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "browser": "npm run build && electron . --browser",
+    "start:browser": "electron . --browser",
+    "test:browser": "npm run build && node tests/browser.integration.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

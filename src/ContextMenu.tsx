@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import {
   Copy,
+  Palette,
   Download,
   FolderOpen,
   ImagePlus,
@@ -35,6 +36,8 @@ const icons: Record<MenuAction, typeof Copy> = {
   undo: Undo2,
   redo: Redo2,
   view: Eye,
+  spoiler: Eye,
+  colors: Palette,
   reference: Sparkles,
   copyImage: Copy,
   exportImage: Download,

@@ -31,6 +31,7 @@ import {
 import { RecentProjects } from './RecentProjects';
 import { CodexPanel } from './CodexPanel';
 import { executeCanvasTool } from './codex-tools';
+import { ItemAppearance } from './ItemAppearance';
 import { Appearance } from './Appearance';
 import { Canvas, assetUrl } from './Canvas';
 import { Generation } from './Generation';
@@ -207,6 +208,18 @@ export function App() {
       if (['duplicate', 'group', 'ungroup', 'align', 'lock', 'remove'].includes(name))
         return runSelectionAction(name as SelectionAction);
       switch (name) {
+        case 'colors':
+          setRight('inspect');
+          return;
+        case 'spoiler': {
+          const sensitive = !targets.every((i) => i.data.sensitive);
+          s.change(
+            s.board.items.map((i) =>
+              context.ids.includes(i.id) ? { ...i, data: { ...i.data, sensitive } } : i,
+            ),
+          );
+          return;
+        }
         case 'import':
           return await importImages(point);
         case 'paste':
@@ -305,7 +318,7 @@ export function App() {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (
-        document.querySelector('[role="menu"], dialog[open]') ||
+        document.querySelector('[role="menu"], dialog[open], .capturing') ||
         (e.target as HTMLElement).closest('.codex-panel')
       )
         return;
@@ -627,6 +640,7 @@ export function App() {
                 )}
               </>
             )}
+            <ItemAppearance items={selectedItems} />
             <div className="action-grid">
               <button onClick={action('duplicate')}>
                 <Copy size={15} /> Duplicate
