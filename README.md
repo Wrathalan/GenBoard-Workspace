@@ -1,6 +1,6 @@
-# Local Imagine Workspace
+# Weave
 
-Source repository: **GenBoard Workspace**. The Windows application is currently named **Local Imagine Workspace**.
+**Weave** is the new name for Local Imagine Workspace. The source repository is [GenBoard Workspace](https://github.com/Wrathalan/GenBoard-Workspace).
 
 See the [changelog](CHANGELOG.md) for release changes.
 
@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Local Imagine Workspace Setup 0.3.6.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+Building locally writes the installer to `release/Weave Setup 0.3.7.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -59,12 +59,12 @@ Right-click an image for full-resolution viewing, reference assignment, clipboar
 
 ## Open in a browser
 
-Run `npm run browser` from this folder, then open [Local Imagine Workspace](http://127.0.0.1:4317/) in the Codex browser or another browser on this computer. After a build, `npm run start:browser` starts it directly. The Electron backend runs with its window hidden and keeps using the existing project store, image tools, ComfyUI, and Codex integration.
+Run `npm run browser` from this folder, then open [Weave](http://127.0.0.1:4317/) in the Codex browser or another browser on this computer. After a build, `npm run start:browser` starts it directly. The Electron backend runs with its window hidden and keeps using the existing project store, image tools, ComfyUI, and Codex integration.
 
 To open an existing project on startup:
 
 ```powershell
-npm run browser -- --project="C:\Projects\Example\Imagine"
+npm run browser -- --project="C:\Projects\Example\Weave"
 ```
 
 **Open project** and **Create project** accept a full folder path in the browser. Image import, export, clipboard, executable selection, and Explorer actions use this computer's existing native services. Recent projects and the separate Codex sign-in are shared with the desktop version. Close a desktop instance before opening the same project in browser mode.
@@ -72,6 +72,12 @@ npm run browser -- --project="C:\Projects\Example\Imagine"
 The server listens only on `127.0.0.1`. It checks the host, origin, and an ephemeral session for requests, allows one editing tab, and serves only the built application and registered project images. Other websites and computers cannot use it as a filesystem API. Desktop mode retains its original renderer network restriction.
 
 Wait for **Saved locally** before closing or refreshing a tab. The browser warns while board changes are still saving. Closing a tab leaves the local server and generation jobs running; a lost browser connection stops an active Codex turn, and requests are never automatically replayed. Reopen the page to reconnect. Stop the server with **Ctrl+C** in its terminal. Set `IMAGINE_BROWSER_PORT` to use a different port.
+
+## Weave branding and upgrades (0.3.7)
+
+Weave uses the approved White Flame icon throughout the desktop app, browser tab, and Windows installer. `resources/app-icon-source.png` is the source artwork; `scripts/build-icons.mjs` regenerates the PNG and multi-size ICO assets during each build.
+
+The installer retains the existing `local.imagine.workspace` identity, and the app continues using `%APPDATA%/local-imagine-workspace` for preferences and Codex sign-in. Project folders, internal protocols, and saved setting keys remain compatible with previous versions.
 
 ## Recent projects (0.3.1)
 
@@ -126,7 +132,7 @@ Use **Grid** and **Guides** at the top of the canvas to toggle snapping. Both st
 
 Right-click empty canvas to import, paste, or add a note at that exact location, and access viewport/history actions. Right-click an image, note, group, selection, or generation placeholder for relevant actions. A right-click on an unselected item selects it; right-clicking inside the selection keeps the entire selection. Dragging the right mouse button more than four pixels pans without opening a menu. Space, middle-button, and Hand-tool panning remain available.
 
-Image menus include **Copy image**, **Save original as…**, **Show in Explorer**, **View full resolution**, and **Use as reference**. Copy writes an orientation-correct PNG to the system clipboard; Save As preserves the original bytes and extension. Export destinations must be outside Imagine projects, and the native save dialog confirms external overwrites. File actions apply to one image at a time. Two selected images offer **Compare images**.
+Image menus include **Copy image**, **Save original as…**, **Show in Explorer**, **View full resolution**, and **Use as reference**. Copy writes an orientation-correct PNG to the system clipboard; Save As preserves the original bytes and extension. Export destinations must be outside Weave projects, and the native save dialog confirms external overwrites. File actions apply to one image at a time. Two selected images offer **Compare images**.
 
 Group and note menus provide rename/edit actions. Selection operations are disabled for incompatible or locked targets instead of silently changing a subset. Deleting selected group frames retains their unselected contents, as before. Job menus expose details and the cancel/retry/reconcile actions appropriate to the current state; failed/cancelled placeholders can be removed without deleting job history.
 

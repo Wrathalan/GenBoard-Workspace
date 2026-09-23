@@ -1,13 +1,13 @@
 {
-  "name": "local-imagine-workspace",
-  "version": "0.3.6",
+  "name": "weave",
+  "version": "0.3.7",
   "private": true,
   "description": "An offline creative canvas with a local ComfyUI harness",
-  "author": "Local Imagine Workspace",
+  "author": "Weave",
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "npm run build && electron .",
-    "build": "tsc --noEmit && vite build && node scripts/build.mjs",
+    "build": "node scripts/build-icons.mjs && tsc --noEmit && vite build && node scripts/build.mjs",
     "start": "electron .",
     "test": "vitest run",
     "test:desktop": "npm run build && playwright test",
@@ -46,7 +46,7 @@
   },
   "build": {
     "appId": "local.imagine.workspace",
-    "productName": "Local Imagine Workspace",
+    "productName": "Weave",
     "directories": {
       "output": "release"
     },
@@ -62,9 +62,12 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "icon": "resources/icon.ico",
+      "signExecutable": false
     },
     "nsis": {
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false

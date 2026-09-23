@@ -125,7 +125,7 @@ export function builtinTemplates(): Template[] {
       },
     },
     '6': { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } },
-    '7': { class_type: 'SaveImage', inputs: { images: ['6', 0], filename_prefix: 'LocalImagine' } },
+    '7': { class_type: 'SaveImage', inputs: { images: ['6', 0], filename_prefix: 'Weave' } },
   };
   const t: Template = {
     id: 'sdxl-text',

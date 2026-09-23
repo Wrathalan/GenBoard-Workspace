@@ -45,7 +45,7 @@ async function launch(project) {
     });
     processHandle.stdout.on('data', (data) => {
       output += data;
-      const match = /Local Imagine Workspace: (http:\/\/127\.0\.0\.1:\d+\/)/.exec(output);
+      const match = /Weave: (http:\/\/127\.0\.0\.1:\d+\/)/.exec(output);
       if (match) {
         clearTimeout(timeout);
         resolve(match[1]);

@@ -28,7 +28,7 @@ export function validateExportDestination(destination: string, store: ProjectSto
     throw new Error('Choose an export location outside the project folder.');
   for (let dir = path.dirname(resolved); ; dir = path.dirname(dir)) {
     if (fs.existsSync(path.join(dir, 'workspace.sqlite')))
-      throw new Error('Export cannot overwrite files inside an Imagine project.');
+      throw new Error('Export cannot overwrite files inside a Weave project.');
     if (dir === path.dirname(dir)) break;
   }
   if (fs.existsSync(resolved)) {

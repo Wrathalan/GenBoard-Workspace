@@ -31,7 +31,7 @@ export class ProjectStore {
     this.folder = fs.realpathSync(folder);
     this.lock = contained(this.folder, '.imagine.lock');
     if (!create && !fs.existsSync(path.join(folder, 'workspace.sqlite')))
-      throw new Error('This folder does not contain an Imagine project.');
+      throw new Error('This folder does not contain a Weave project.');
     if (fs.existsSync(this.lock)) {
       let pid: number;
       try {
@@ -57,7 +57,7 @@ export class ProjectStore {
       this.db.pragma('foreign_keys = ON');
       const version = this.db.pragma('user_version', { simple: true }) as number;
       if (version > 1)
-        throw new Error('This project requires a newer version of Local Imagine Workspace.');
+        throw new Error('This project requires a newer version of Weave.');
       this.db.exec(
         'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS boards (id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS templates (id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS lineage (job_id TEXT NOT NULL, source_id TEXT NOT NULL, output_id TEXT NOT NULL, PRIMARY KEY(job_id, source_id, output_id)); PRAGMA user_version = 1;',
       );

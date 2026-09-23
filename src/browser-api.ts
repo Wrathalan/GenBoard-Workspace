@@ -33,12 +33,12 @@ function chooseFolder(create: boolean): Promise<string | null> {
     const form = document.createElement('form');
     form.method = 'dialog';
     const title = document.createElement('h2');
-    title.textContent = create ? 'Create Imagine project' : 'Open Imagine project';
+    title.textContent = create ? 'Create Weave project' : 'Open Weave project';
     const label = document.createElement('label');
     label.textContent = 'Project folder on this computer';
     const input = document.createElement('input');
     input.required = true;
-    input.placeholder = 'E:\\Codex\\My project\\Imagine';
+    input.placeholder = 'E:\\Codex\\My project\\Weave';
     input.autocomplete = 'off';
     label.append(input);
     const buttons = document.createElement('div');

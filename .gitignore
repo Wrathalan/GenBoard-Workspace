@@ -7,3 +7,4 @@ playwright-report/
 .test-data/
 *.log
 .npm-cache/
+output/

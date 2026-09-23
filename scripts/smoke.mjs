@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 
-const executablePath = path.resolve('release/win-unpacked/Local Imagine Workspace.exe');
+const executablePath = path.resolve('release/win-unpacked/Weave.exe');
 const env = { ...process.env, IMAGINE_TEST: '1' };
 delete env.ELECTRON_RUN_AS_NODE;
 const app = await electron.launch({ executablePath, env });
@@ -12,8 +12,19 @@ try {
   const version = await app.evaluate(({ app }) => app.getVersion());
   if (version !== expectedVersion)
     throw new Error(`Expected version ${expectedVersion}, got ${version}`);
+  const identity = await app.evaluate(({ app }) => ({
+    name: app.getName(),
+    userData: app.getPath('userData'),
+    appData: app.getPath('appData'),
+  }));
+  if (identity.name !== 'Weave') throw new Error('Packaged app name is not Weave');
+  if (identity.userData !== path.join(identity.appData, 'local-imagine-workspace'))
+    throw new Error('Rebrand changed the existing user profile location');
   const page = await app.firstWindow();
   await page.getByRole('button', { name: 'Create project', exact: true }).waitFor();
+  if ((await page.title()) !== 'Weave') throw new Error('Page title is not Weave');
+  await page.getByRole('img', { name: 'Weave', exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('.brand-mark img')?.naturalWidth === 512);
   await fs.mkdir('docs/screenshots', { recursive: true });
   await page.screenshot({ path: 'docs/screenshots/welcome.png' });
   const folder = path.resolve('.test-data', 'packaged-smoke-' + Date.now());

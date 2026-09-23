@@ -182,6 +182,10 @@ p {
   border-radius: 9px;
   color: var(--color-text);
 }
+.brand-mark img {
+  display: block;
+  border-radius: inherit;
+}
 .project-name {
   font-size: 11px;
   color: var(--color-text);

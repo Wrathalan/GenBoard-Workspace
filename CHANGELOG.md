@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.7 — 2026-09-23
+
+### Changed
+
+- Rebranded the application as **Weave**, including the interface, window and browser titles, dialogs, Codex identity, Windows executable, and installer.
+- Added the approved White Flame icon with gold and red stars to the app header, taskbar, favicon, executable, and installer.
+- Preserved the existing installer identity and user profile location so upgrades retain recent projects, preferences, and Codex sign-in. Existing project files remain compatible.
+
 ## 0.3.6 — 2026-09-23
 
 ### Added

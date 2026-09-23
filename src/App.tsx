@@ -401,10 +401,10 @@ export function App() {
             <PanelLeft size={17} />
           </button>
           <div className="brand-mark">
-            <Grid2X2 size={16} />
+            <img src="./app-icon.png" alt="Weave" width={31} height={31} />
           </div>
           <span className="project-name">
-            {project?.name || 'Local Imagine'}
+            {project?.name || 'Weave'}
             <span className="slash">/</span>
             <span>{board?.name || 'Workspace'}</span>
           </span>

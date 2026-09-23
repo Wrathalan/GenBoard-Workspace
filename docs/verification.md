@@ -1,3 +1,11 @@
+# Weave 0.3.7 - 2026-09-23
+
+Rebranded the app as Weave and packaged `release/Weave Setup 0.3.7.exe`. The approved White Flame icon appears in the header, favicon, native window, executable, and installer. Windows product metadata reports Weave 0.3.7, and all seven approved ICO frames were verified in both executables.
+
+TypeScript and production build passed, all 51 unit tests passed, and the browser integration check passed project create/save/reopen, library metadata, imports, recent projects, and RPC errors. The packaged smoke check passed, including Weave's app name, page title, loaded icon, and unchanged `%APPDATA%/local-imagine-workspace` profile path, plus the existing canvas and persistence scenarios. The installer retains `local.imagine.workspace` as its upgrade identity. Actual installation over an existing user installation was not performed.
+
+The Windows x64 installer is 134,957,398 bytes. SHA-256: `a25496a8d0596ba84aa61ed2b923023308102075fd67d9b20089bdb25ef5a3c4`. The installer and matching checksum are saved in `release/`. The packaged payload was tested directly; the installer was not installed or published during verification.
+
 # Version 0.3.6 - 2026-09-23
 
 Bumped the application and lockfile from 0.3.5 to 0.3.6 and built `release/Local Imagine Workspace Setup 0.3.6.exe` with the folders, character references, Codex task queue, reference drag/drop, and sticky-edge features. Rebuilt the same version with the left-aligned start screen and main view flush to the window, without the outer inset, border, or rounded corners. TypeScript and the production build passed. The preceding feature verification passed all 51 unit tests and 23 desktop scenarios.

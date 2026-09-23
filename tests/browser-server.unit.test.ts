@@ -46,7 +46,7 @@ beforeEach(async () => {
   directory = fs.mkdtempSync(path.resolve('.test-data/browser-server-'));
   fs.writeFileSync(
     path.join(directory, 'index.html'),
-    '<html><head><meta content="connect-src \'none\'"></head><body>Local Imagine</body></html>',
+    '<html><head><meta content="connect-src \'none\'"></head><body>Weave</body></html>',
   );
   fs.writeFileSync(path.join(directory, 'app.js'), '/* fixture */');
   fs.writeFileSync(path.join(directory, 'secret.txt'), 'unserved');

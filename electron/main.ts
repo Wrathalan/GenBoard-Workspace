@@ -24,6 +24,12 @@ import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
 import { CodexHarness } from './codex';
 import { copyAssetImage, exportAsset, revealAsset } from './asset-actions';
 
+// Keep the existing profile so the rebrand preserves recent projects, preferences,
+// and the Codex sign-in. The installer appId also remains stable for upgrades.
+app.setPath('userData', path.join(app.getPath('appData'), 'local-imagine-workspace'));
+app.setName('Weave');
+if (process.platform === 'win32') app.setAppUserModelId('local.imagine.workspace');
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'imagine',
@@ -199,7 +205,12 @@ app
       minWidth: 900,
       minHeight: 620,
       backgroundColor: '#111110',
-      title: 'Local Imagine Workspace',
+      title: 'Weave',
+      icon: path.join(
+        __dirname,
+        '../dist',
+        process.platform === 'win32' ? 'favicon.ico' : 'app-icon.png',
+      ),
       autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(__dirname, 'preload.cjs'),
@@ -270,7 +281,7 @@ app
     });
     handle('project:choose', async (create: boolean) => {
       const selection = await dialog.showOpenDialog(win, {
-        title: create ? 'Choose a folder for your project' : 'Open Imagine project folder',
+        title: create ? 'Choose a folder for your project' : 'Open Weave project folder',
         properties: ['openDirectory', 'createDirectory'],
       });
       if (selection.canceled) return null;
@@ -438,7 +449,7 @@ app
           if (codex.busy) void codex.stop().catch(() => {});
         },
       });
-      console.log('Local Imagine Workspace: ' + browserServer.url);
+      console.log('Weave: ' + browserServer.url);
     } else {
       await win.loadFile(path.join(__dirname, '../dist/index.html'));
     }
