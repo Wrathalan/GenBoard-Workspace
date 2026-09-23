@@ -8,6 +8,10 @@ const env = { ...process.env, IMAGINE_TEST: '1' };
 delete env.ELECTRON_RUN_AS_NODE;
 const app = await electron.launch({ executablePath, env });
 try {
+  const expectedVersion = JSON.parse(await fs.readFile('package.json', 'utf8')).version;
+  const version = await app.evaluate(({ app }) => app.getVersion());
+  if (version !== expectedVersion)
+    throw new Error(`Expected version ${expectedVersion}, got ${version}`);
   const page = await app.firstWindow();
   await page.getByRole('button', { name: 'Create project', exact: true }).waitFor();
   await fs.mkdir('docs/screenshots', { recursive: true });
@@ -113,11 +117,59 @@ try {
       JSON.stringify(original.position)
     )
       throw new Error('Grouped member offsets changed');
+  await page.evaluate(async () => {
+    const project = await window.imagine.currentProject();
+    await window.imagine.saveLibrary({
+      folders: [{ id: 'cast', name: 'Cast' }],
+      assetFolders: { [project.assets[0].id]: 'cast' },
+      characters: [
+        {
+          id: 'hero',
+          name: 'Hero',
+          description: 'Packaged reference',
+          assetIds: [project.assets[0].id],
+        },
+      ],
+    });
+    const board = project.boards[0];
+    board.viewport = { x: 0, y: 0, zoom: 1 };
+    board.items = ['edge-a', 'edge-b'].map((id, index) => ({
+      id,
+      type: 'text',
+      position: { x: 120 + index * 100, y: 120 },
+      width: 100,
+      height: 80,
+      data: { text: id },
+    }));
+    await window.imagine.saveBoard(board);
+  });
+  await page.reload();
+  await page.locator('.react-flow__node[data-id="edge-a"]').click();
+  await page.getByTitle('Lock edges', { exact: true }).click();
+  await page.getByTitle('Unlock edges', { exact: true }).waitFor();
+  await page.keyboard.press('Control+s');
+  const edgeBoard = (await page.evaluate(() => window.imagine.currentProject())).boards[0];
+  await app.evaluate(
+    async (_, boardId) =>
+      globalThis.imagineTest.executeCodexTool(boardId, 'move', { ids: ['edge-b'], dx: 24, dy: 48 }),
+    edgeBoard.id,
+  );
+  const checked = await page.evaluate(() => window.imagine.currentProject());
+  if (checked.library.characters[0].name !== 'Hero' || checked.library.folders[0].name !== 'Cast')
+    throw new Error('Packaged library persistence failed');
+  if (
+    checked.boards[0].items[0].position.x !== 144 ||
+    checked.boards[0].items[1].position.x !== 244 ||
+    !checked.boards[0].items[0].data.edgeLinks.includes('edge-b')
+  )
+    throw new Error('Packaged sticky-edge movement failed');
+  await page.screenshot({ path: path.join(folder, 'sticky-edges.png') });
   await fs.writeFile(
     'docs/packaged-smoke.json',
     JSON.stringify(
       {
         passed: true,
+        version,
         checkedAt: new Date().toISOString(),
         electron: await app.evaluate(({ app }) => process.versions.electron),
         checks: [
@@ -133,6 +185,8 @@ try {
           'Sensitive marking and safe screenshot clipboard capture',
           'Light theme and per-item sensitive cover override',
           'Rigid movement from a grouped member',
+          'Library folder and character persistence',
+          'Sticky-edge controls and connected movement',
           'Clean shutdown',
         ],
       },

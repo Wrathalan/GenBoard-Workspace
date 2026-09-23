@@ -2,13 +2,15 @@
 
 Source repository: **GenBoard Workspace**. The Windows application is currently named **Local Imagine Workspace**.
 
+See the [changelog](CHANGELOG.md) for release changes.
+
 A standalone Windows desktop canvas for local images, notes, reference groups, and ComfyUI generation. Projects and ComfyUI image inference stay on your computer. The optional Codex agent uses an online Codex account; manual canvas operation remains offline. There is no application telemetry, remote font, or runtime CDN dependency.
 
 ## Run or install
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Local Imagine Workspace Setup 0.3.5.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
+Building locally writes the installer to `release/Local Imagine Workspace Setup 0.3.6.exe`. The unpacked application is `release/win-unpacked/Local Imagine Workspace.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -75,7 +77,19 @@ Wait for **Saved locally** before closing or refreshing a tab. The browser warns
 
 The start screen and project drawer list your last 12 successfully opened projects, newest first. Click one to reopen directly without a folder dialog. Names and paths are cached in `recent-projects.json` in the app's local user-data folder, so they survive restarts and app updates. Unavailable folders stay listed; reconnect the drive or use **Open project** to locate a moved folder. The X removes only the recent entry, never project files. Opening a recent project retains the usual writer-lock and active-job checks.
 
+## Folders, characters, and queued requests
+
+The project library supports nested folders. Enter a folder name and choose **New folder**; open a folder to create subfolders. Drag library images or PNG/JPEG/WebP files onto a folder to add them. Select library checkboxes to move several images with the folder selector. Removing a folder keeps its images and moves its contents to its parent. Folder organization is saved inside the project.
+
+Select 1–5 library images or canvas images, then choose **New character from selection**. Save a name and identity details with the reference images. Edit a saved character by clicking it. In Codex, choose the character from the reference selector or drag the character into the panel; its images and identity details accompany the next request. The five-image attachment limit includes character images.
+
+Drag an image, note, or whole group onto an unlocked group to join it. The destination grows to contain the new members, positions are preserved, and the change supports undo/redo. Existing groups still move as a unit. Library images and dropped files can also be placed directly into groups. Drag a canvas image into the Codex panel, or use its corner drag handle, to attach it while keeping its board position. References are sent online only when the request runs.
+
+While Codex is working, **Enter** or **Queue** adds the next request. Each queued task keeps its prompt, character details, images, target board, and output position from enqueue time. Use the queue controls to pause, resume, reorder, or cancel pending tasks. Failure or **Stop** pauses the queue; failed requests are not automatically retried. Tasks for another board wait until that board is active. The queue lasts for the current project session and is cleared by reloading, closing the app, or switching projects; saved folders and characters persist.
+
 ## Use the workspace
+
+With **Guides** enabled, touching edges snap within eight screen pixels and take priority over center guides and the board grid. The guide and crosshair turn cyan when two edges meet over a shared span. Release the drag and click **Lock edges** beside the crosshair to join the items. Drag either item to move the connected set; linked groups keep their member offsets. Select a connected item to show **Unlock edges** at each join or **Unlock connected edges** for the entire set. Edge locks persist with the board and support undo/redo. Unlock before resizing linked items or dropping new members into a linked group. A fixed/locked card blocks movement of its connected set. The crosshair color is configurable under **Customize colors → Canvas → Aligned and locked edges**.
 
 1. **Create project** and choose a dedicated folder. A project is a portable folder containing `workspace.sqlite`, originals, outputs, thumbnails, workflow manifests, and a live `.imagine.lock`.
 2. Drop PNG, JPEG, or WebP files onto the board, use **Import images**, or paste an image with **Ctrl+V**. Originals are copied, not moved. Different binary encodings remain separate originals even when pixels match.

@@ -14,10 +14,19 @@ import { Grid3X3, ScanLine, ImageIcon, LoaderCircle, Lock } from 'lucide-react';
 import { useWorkspace, fail, flush } from './store';
 import type { CanvasItem, ItemData, Point, Viewport } from '../shared/types';
 import { contextSelection, isRightDrag, type ContextTarget } from '../shared/context-menu';
-import { motionRoots, motionLocks, rigidPositions } from '../shared/group-motion';
+import { motionRoots, motionLocks, rigidPositions, edgeLinkedRoots } from '../shared/group-motion';
+import {
+  availableEdgeContacts,
+  edgeContacts,
+  edgePairs,
+  lockEdges,
+  unlockEdges,
+} from '../shared/sticky-edges';
 import { itemColorVariables } from '../shared/appearance';
 import { sensitiveIds } from '../shared/spoilers';
 import { GRID_SIZE, snapPositions, type SnapGuide } from '../shared/snapping';
+import { dropIntoGroup } from '../shared/group-drop';
+import { ATTACH_REFERENCES, readReferences, referenceIds, writeReferences } from './references';
 type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job' | 'spoiler'>;
 export const assetUrl = (id: string, original = false) =>
   window.location.protocol === 'file:'
@@ -35,9 +44,12 @@ const Resize = ({
   ratio?: boolean;
 }) => {
   const grouped = useWorkspace((s) => !!s.board?.items.find((i) => i.id === id)?.parentId);
+  const edgeLinked = useWorkspace((s) =>
+    edgeLinkedRoots(s.board?.items || []).has(motionRoots(s.board?.items || []).get(id)!),
+  );
   return (
     <NodeResizer
-      isVisible={!!selected && !locked && !grouped}
+      isVisible={!!selected && !locked && !grouped && !edgeLinked}
       keepAspectRatio={ratio}
       minWidth={64}
       minHeight={48}
@@ -55,6 +67,17 @@ const ImageNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
     <div className="image-node">
       <Resize id={id} selected={selected} locked={data.locked} ratio />
       <img src={assetUrl(data.assetId!)} alt={name || 'Image'} draggable={false} />
+      <button
+        className="reference-drag nodrag"
+        title="Drag reference to Codex"
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          writeReferences(e.dataTransfer, [data.assetId!]);
+        }}
+      >
+        ↗
+      </button>
       {data.locked && <Lock className="lock-badge" size={13} />}
     </div>
   );
@@ -156,6 +179,42 @@ export function Canvas({
   const selected = useWorkspace((s) => s.selected);
   const flow = useReactFlow();
   const dragging = useRef(false);
+  const beforeDrag = useRef<CanvasItem[]>([]);
+  const finishDrag = (event: MouseEvent | TouchEvent | React.MouseEvent, ids: string[]) => {
+    const e = 'changedTouches' in event ? event.changedTouches[0] : event;
+    dragging.current = false;
+    setGuides([]);
+    if (!e) return;
+    const s = useWorkspace.getState();
+    if (!s.board) return;
+    const panel = document.querySelector('.codex-panel')?.getBoundingClientRect();
+    if (
+      panel &&
+      panel.width > 0 &&
+      e.clientX >= panel.left &&
+      e.clientX <= panel.right &&
+      e.clientY >= panel.top &&
+      e.clientY <= panel.bottom
+    ) {
+      const assets = referenceIds(ids);
+      // A reference drop copies the image; restore only positions changed by this gesture.
+      const originals = new Map(beforeDrag.current.map((i) => [i.id, i]));
+      s.change(
+        s.board.items.map((i) =>
+          originals.has(i.id) ? { ...i, position: originals.get(i.id)!.position } : i,
+        ),
+        false,
+      );
+      window.dispatchEvent(new CustomEvent(ATTACH_REFERENCES, { detail: assets }));
+    } else {
+      const items = dropIntoGroup(
+        s.board.items,
+        ids,
+        flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+      );
+      if (items !== s.board.items) s.change(items, false);
+    }
+  };
   const blockedMotion = useMemo(() => {
     const roots = motionRoots(board?.items || []);
     const locks = motionLocks(board?.items || [], roots);
@@ -166,6 +225,20 @@ export function Canvas({
     () => localStorage.getItem('imagine.snapAlignment') !== 'false',
   );
   const [guides, setGuides] = useState<SnapGuide[]>([]);
+  const contacts = useMemo(
+    () => (alignment ? availableEdgeContacts(board?.items || [], selected) : []),
+    [board?.items, selected, alignment],
+  );
+  const linkedPairs = useMemo(
+    () => edgePairs(board?.items || [], selected),
+    [board?.items, selected],
+  );
+  const links = linkedPairs.map(([a, b]) => {
+    const items = board!.items;
+    const first = items.find((i) => i.id === a)!,
+      second = items.find((i) => i.id === b)!;
+    return { a, b, contact: edgeContacts(first, second, items)[0] };
+  });
   useEffect(() => {
     localStorage.setItem('imagine.snapGrid', String(grid));
   }, [grid]);
@@ -261,7 +334,8 @@ export function Canvas({
           c.type === 'dimensions' &&
           c.dimensions &&
           c.resizing &&
-          !s.board.items.find((i) => i.id === c.id)?.parentId
+          !s.board.items.find((i) => i.id === c.id)?.parentId &&
+          !edgeLinkedRoots(s.board.items).has(motionRoots(s.board.items).get(c.id)!)
         ) {
           items = items.map((i) => (i.id === c.id ? { ...i, ...c.dimensions } : i));
           mutated = true;
@@ -274,18 +348,15 @@ export function Canvas({
   );
   const drop = async (e: React.DragEvent) => {
     e.preventDefault();
-    if (!useWorkspace.getState().board) return;
+    const boardId = useWorkspace.getState().board?.id;
+    if (!boardId) return;
+    const point = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
     try {
-      const files = await Promise.all(
-        [...e.dataTransfer.files].map(async (f) => ({
-          name: f.name,
-          bytes: new Uint8Array(await f.arrayBuffer()),
-        })),
-      );
-      const assets = await window.imagine.importImages(files);
-      useWorkspace
-        .getState()
-        .addAssets(assets, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY }));
+      const assets = await readReferences(e.dataTransfer);
+      if (useWorkspace.getState().board?.id !== boardId || !assets.length) return;
+      useWorkspace.getState().addAssets(assets, point);
+      const s = useWorkspace.getState();
+      s.change(dropIntoGroup(s.board!.items, s.selected, point), false);
     } catch (e) {
       fail(e);
     }
@@ -385,20 +456,23 @@ export function Canvas({
         onViewportChange={(v) => useWorkspace.getState().viewport(v)}
         onNodeDragStart={() => {
           dragging.current = true;
+          beforeDrag.current = structuredClone(useWorkspace.getState().board?.items || []);
           useWorkspace.getState().checkpoint();
         }}
         onSelectionDragStart={() => {
           dragging.current = true;
+          beforeDrag.current = structuredClone(useWorkspace.getState().board?.items || []);
           useWorkspace.getState().checkpoint();
         }}
-        onNodeDragStop={() => {
-          dragging.current = false;
-          setGuides([]);
-        }}
-        onSelectionDragStop={() => {
-          dragging.current = false;
-          setGuides([]);
-        }}
+        onNodeDragStop={(e, node, nodes) =>
+          finishDrag(e, nodes?.length ? nodes.map((n) => n.id) : [node.id])
+        }
+        onSelectionDragStop={(e, nodes) =>
+          finishDrag(
+            e,
+            nodes.map((n) => n.id),
+          )
+        }
         onNodeDoubleClick={(_, n) => {
           if (n.type === 'image') inspect([n.data.assetId!]);
         }}
@@ -473,7 +547,7 @@ export function Canvas({
               <Grid3X3 size={16} /> Grid
             </button>
             <button
-              title="Snap to image and text edges and centers"
+              title="Snap to edges before centers and grid; lock touching edges to move together"
               aria-label="Alignment guides"
               aria-pressed={alignment}
               className={alignment ? 'active' : ''}
@@ -486,7 +560,7 @@ export function Canvas({
             {guides.map((g) => (
               <div
                 key={g.axis}
-                className={`snap-guide ${g.axis}`}
+                className={`snap-guide ${g.axis}${g.edge ? ' sticky-aligned' : ''}`}
                 style={
                   g.axis === 'x'
                     ? { left: g.value * board.viewport.zoom + board.viewport.x }
@@ -494,6 +568,82 @@ export function Canvas({
                 }
               />
             ))}
+          </div>
+          <div className="sticky-edge-controls" aria-label="Sticky edges">
+            {contacts.map((contact) => {
+              const x = contact.axis === 'x' ? contact.value : (contact.start + contact.end) / 2;
+              const y = contact.axis === 'y' ? contact.value : (contact.start + contact.end) / 2;
+              return (
+                <div
+                  key={`${contact.a}:${contact.b}:${contact.axis}`}
+                  className="edge-join aligned"
+                  style={{
+                    left: x * board.viewport.zoom + board.viewport.x,
+                    top: y * board.viewport.zoom + board.viewport.y,
+                  }}
+                >
+                  <span className="edge-crosshair" aria-label="Edges aligned" />
+                  {!dragging.current && (
+                    <button
+                      title="Lock edges"
+                      onClick={() => {
+                        const s = useWorkspace.getState();
+                        if (s.board) {
+                          const next = lockEdges(s.board.items, contact);
+                          if (next !== s.board.items) s.change(next);
+                        }
+                      }}
+                    >
+                      <Lock size={12} /> Lock edges
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {links
+              .filter((link) => link.contact)
+              .map(({ a, b, contact }) => {
+                const c = contact!;
+                const x = c.axis === 'x' ? c.value : (c.start + c.end) / 2;
+                const y = c.axis === 'y' ? c.value : (c.start + c.end) / 2;
+                return (
+                  <div
+                    key={`${a}:${b}`}
+                    className="edge-join locked"
+                    style={{
+                      left: x * board.viewport.zoom + board.viewport.x,
+                      top: y * board.viewport.zoom + board.viewport.y,
+                    }}
+                  >
+                    <span className="edge-crosshair" aria-label="Edges locked" />
+                    {!dragging.current && (
+                      <button
+                        title="Unlock edges"
+                        onClick={() => {
+                          const s = useWorkspace.getState();
+                          if (s.board) s.change(unlockEdges(s.board.items, a, b));
+                        }}
+                      >
+                        <Lock size={12} /> Unlock edges
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            {links.length > 0 && !dragging.current && (
+              <button
+                className="unlock-all-edges"
+                onClick={() => {
+                  const s = useWorkspace.getState();
+                  if (!s.board) return;
+                  s.change(
+                    links.reduce((items, { a, b }) => unlockEdges(items, a, b), s.board.items),
+                  );
+                }}
+              >
+                Unlock connected edges ({links.length})
+              </button>
+            )}
           </div>
         </>
       )}

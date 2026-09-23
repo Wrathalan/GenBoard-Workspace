@@ -106,6 +106,13 @@ try {
     { name: 'browser-fixture.png', bytes: { $imagineBytes: png.toString('base64') } },
   ]);
   assert.equal(assets[0].width, 20);
+  const library = {
+    folders: [{ id: 'cast', name: 'Cast' }, { id: 'heroes', name: 'Heroes', parentId: 'cast' }],
+    assetFolders: { [assets[0].id]: 'heroes' },
+    characters: [{ id: 'hero', name: 'Hero', description: 'Blue coat', assetIds: [assets[0].id] }],
+  };
+  await call('library:save', library);
+  await assert.rejects(call('library:save', { ...library, folders: [{ id: 'cast', name: 'Cast', parentId: 'cast' }] }), /hierarchy/);
   const original = await fetch(url + 'media/' + assets[0].id + '/original', {
     headers: { Cookie: cookie },
   });
@@ -129,8 +136,9 @@ try {
   assert.equal(reopened.boards[0].items.length, 2);
   assert.equal(reopened.boards[0].items[0].data.text, 'Saved through the browser bridge');
   assert.equal(reopened.assets.length, 1);
+  assert.deepEqual(reopened.library, library);
   console.log(
-    'Browser integration passed: real project create/save/reopen, binary import, image serving, recents, and RPC errors.',
+    'Browser integration passed: real project create/save/reopen, folders and characters, binary import, image serving, recents, and RPC errors.',
   );
   console.log('UI test fixture: ' + projectFolder);
 } finally {

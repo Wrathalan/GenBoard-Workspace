@@ -29,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { RecentProjects } from './RecentProjects';
+import { Library } from './Library';
 import { CodexPanel } from './CodexPanel';
 import { executeCanvasTool } from './codex-tools';
 import { ItemAppearance } from './ItemAppearance';
@@ -534,20 +535,7 @@ export function App() {
                     {b.name}
                   </button>
                 ))}
-                <div className="section-title">
-                  Project library <small>{project.assets.length}</small>
-                </div>
-                <div className="asset-grid">
-                  {project.assets.map((a) => (
-                    <button
-                      key={a.id}
-                      title={`Add ${a.name} to board`}
-                      onClick={() => useWorkspace.getState().addAssets([a], center())}
-                    >
-                      <img src={assetUrl(a.id)} alt={a.name} />
-                    </button>
-                  ))}
-                </div>
+                <Library key={project.folder} center={center} />
                 <p className="micro path-label">{project.folder}</p>
               </>
             )}
@@ -564,7 +552,7 @@ export function App() {
         </div>
       )}
       <div style={{ display: chatOpen ? 'contents' : 'none' }}>
-        <CodexPanel close={() => setChatOpen(false)} />
+        <CodexPanel key={project?.folder || 'empty'} close={() => setChatOpen(false)} />
       </div>
       {project && right === 'inspect' && (
         <aside className="panel right-panel inspector">

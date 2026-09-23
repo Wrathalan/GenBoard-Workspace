@@ -33,6 +33,10 @@ export function duplicateItems(items: CanvasItem[], ids: string[]): CanvasItem[]
     .filter((i) => included.has(i.id) && i.type !== 'job')
     .map((i) => ({
       ...structuredClone(i),
+      data: {
+        ...structuredClone(i.data),
+        edgeLinks: i.data.edgeLinks?.filter((id) => map.has(id)).map((id) => map.get(id)!),
+      },
       id: map.get(i.id)!,
       parentId: i.parentId ? map.get(i.parentId) || i.parentId : undefined,
       position: {

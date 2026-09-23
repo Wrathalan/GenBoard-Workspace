@@ -1,4 +1,4 @@
-import { motionRoots, motionLocks } from '../shared/group-motion';
+import { motionRoots, motionLocks, rigidPositions } from '../shared/group-motion';
 import { useWorkspace, flush } from './store';
 import { selectionPermissions } from '../shared/context-menu';
 import type { WorkspaceToolCall } from '../shared/codex';
@@ -127,10 +127,16 @@ export async function executeCanvasTool(call: WorkspaceToolCall, fit: (ids: stri
       throw new Error('A selected group contains a locked card or job.');
     const dx = number(a.dx),
       dy = number(a.dy);
-    s.change(
-      b.items.map((i) =>
-        moving.has(i.id) ? { ...i, position: { x: i.position.x + dx, y: i.position.y + dy } } : i,
+    const positions = rigidPositions(
+      b.items,
+      new Map(
+        b.items
+          .filter((i) => moving.has(i.id))
+          .map((i) => [i.id, { x: i.position.x + dx, y: i.position.y + dy }]),
       ),
+    );
+    s.change(
+      b.items.map((i) => (positions.has(i.id) ? { ...i, position: positions.get(i.id)! } : i)),
     );
   } else {
     const permissions = selectionPermissions(chosen, b.items, p.jobs);

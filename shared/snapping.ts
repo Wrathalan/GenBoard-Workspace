@@ -1,8 +1,9 @@
 import { absolutePosition } from './board';
+import { edgeContacts, type EdgeContact } from './sticky-edges';
 import type { CanvasItem, Point } from './types';
 
 export const GRID_SIZE = 24;
-export type SnapGuide = { axis: 'x' | 'y'; value: number };
+export type SnapGuide = { axis: 'x' | 'y'; value: number; edge?: EdgeContact };
 /** Snap the moving selection as a rigid body in world coordinates. */
 export function snapPositions(
   items: CanvasItem[],
@@ -52,6 +53,37 @@ export function snapPositions(
   if (alignment) {
     const stationary = items.filter((i) => !affected(i) && i.type !== 'group' && i.type !== 'job');
     for (const axis of ['x', 'y'] as const) {
+      // Opposing edges with overlapping spans take priority over grid and center anchors.
+      let sticky: { delta: number; value: number; a: string; b: string } | undefined;
+      for (const a of proposed.filter((i) => affected(i) && i.type !== 'job')) {
+        const p = absolutePosition(a, proposed);
+        for (const b of items.filter((i) => !affected(i) && i.type !== 'job')) {
+          const q = absolutePosition(b, items);
+          const overlap =
+            axis === 'x'
+              ? Math.min(p.y + a.height, q.y + b.height) - Math.max(p.y, q.y)
+              : Math.min(p.x + a.width, q.x + b.width) - Math.max(p.x, q.x);
+          if (overlap <= 0.01) continue;
+          const sizeA = axis === 'x' ? a.width : a.height,
+            sizeB = axis === 'x' ? b.width : b.height;
+          for (const [anchor, target] of [
+            [p[axis] + sizeA, q[axis]],
+            [p[axis], q[axis] + sizeB],
+          ]) {
+            const correction = target - anchor;
+            if (
+              Math.abs(correction) <= 8 / zoom &&
+              (!sticky || Math.abs(correction) < Math.abs(sticky.delta))
+            )
+              sticky = { delta: correction, value: target, a: a.id, b: b.id };
+          }
+        }
+      }
+      if (sticky) {
+        delta[axis] = sticky.delta;
+        guides.push({ axis, value: sticky.value });
+        continue;
+      }
       let best = 6 / zoom + 0.00001;
       let guide: number | undefined;
       const anchors =
@@ -76,6 +108,19 @@ export function snapPositions(
   for (const root of roots) {
     const p = positions.get(root.id)!;
     result.set(root.id, { x: p.x + delta.x, y: p.y + delta.y });
+  }
+  if (alignment) {
+    const final = items.map((i) => (result.has(i.id) ? { ...i, position: result.get(i.id)! } : i));
+    const stationary = final.filter((i) => !affected(i) && i.type !== 'job');
+    for (const a of final.filter((i) => affected(i) && i.type !== 'job'))
+      for (const b of stationary) {
+        for (const contact of edgeContacts(a, b, final)) {
+          const guide = guides.find(
+            (g) => g.axis === contact.axis && Math.abs(g.value - contact.value) < 0.01,
+          );
+          if (guide && !guide.edge) guide.edge = contact;
+        }
+      }
   }
   return { positions: result, guides };
 }

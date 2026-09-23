@@ -287,6 +287,10 @@ app
     handle('project:open-recent', (id: string) => openProject(recentProjects().resolve(id), false));
     handle('project:forget-recent', (id: string) => recentProjects().remove(id));
     handle('project:current', () => store?.snapshot() || null);
+    handle('library:save', (library: import('../shared/types').Library) => {
+      requireStore().saveLibrary(library);
+      emit();
+    });
     handle('board:save', (b: Board, known?: string[]) => {
       requireStore().saveBoard(b, known);
       emit();

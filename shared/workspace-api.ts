@@ -7,6 +7,7 @@ export function createWorkspaceAPI(
   finishClose: () => void,
 ): WorkspaceAPI {
   return {
+    saveLibrary: (library) => invoke('library:save', library),
     captureCanvas: (rect) => invoke('canvas:capture', rect),
     recentProjects: () => invoke('project:recent'),
     openRecentProject: (id) => invoke('project:open-recent', id),

@@ -5,6 +5,7 @@ export const defaultColors = {
   canvas: '#111110',
   grid: '#535448',
   guides: '#c6d9aa',
+  stickyEdges: '#26d9ec',
   selection: '#bccdaa',
   accent: '#c6d9aa',
   surface: '#191917',
@@ -40,6 +41,7 @@ export const colorSections: Record<string, Partial<Record<keyof Colors, string>>
     canvas: 'Canvas background',
     grid: 'Grid dots',
     guides: 'Alignment guides',
+    stickyEdges: 'Aligned and locked edges',
     selection: 'Selection highlights',
   },
   Interface: {

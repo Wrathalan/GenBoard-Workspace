@@ -3,6 +3,16 @@ import { X, Send, Square, Plus, Settings2, Paperclip } from 'lucide-react';
 import { useReactFlow } from '@xyflow/react';
 import { flush, useWorkspace } from './store';
 import { assetUrl } from './Canvas';
+import { ATTACH_REFERENCES, REFERENCE_MIME, readReferences, referenceIds } from './references';
+
+type Task = {
+  id: string;
+  boardId: string;
+  boardName: string;
+  text: string;
+  refs: string[];
+  position: { x: number; y: number };
+};
 type Message = {
   id: string;
   role: 'user' | 'assistant' | 'activity';
@@ -23,12 +33,36 @@ export function CodexPanel({ close }: { close: () => void }) {
     [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<string[]>([]),
     [imagegen, setImagegen] = useState<boolean | null>(null);
+  const [queue, setQueue] = useState<Task[]>([]),
+    [paused, setPaused] = useState(false);
+  const [characterId, setCharacterId] = useState('');
+  const [dropActive, setDropActive] = useState(false);
+  const running = useRef(false),
+    starting = useRef(false),
+    completed = useRef(false);
+  const selectedCharacter = project?.library?.characters.find((c) => c.id === characterId);
+  function attach(ids: string[]) {
+    setAttachments((old) => {
+      const next = [...new Set([...old, ...ids])];
+      if (next.length > 5) {
+        setStatus('Attach up to five images. Remove an attachment first.');
+        return old;
+      }
+      return next;
+    });
+  }
+  useEffect(() => {
+    const handler = (e: Event) => attach((e as CustomEvent<string[]>).detail);
+    window.addEventListener(ATTACH_REFERENCES, handler);
+    return () => window.removeEventListener(ATTACH_REFERENCES, handler);
+  }, []);
   const scroll = useRef<HTMLDivElement>(null),
     nearBottom = useRef(true),
     composer = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     setMessages([]);
     setAttachments([]);
+    setCharacterId('');
   }, [board?.id]);
   useEffect(() => {
     if (nearBottom.current) scroll.current?.scrollTo({ top: scroll.current.scrollHeight });
@@ -62,15 +96,22 @@ export function CodexPanel({ close }: { close: () => void }) {
         else {
           setStatus(e.text);
           if (e.type === 'done') {
-            setBusy(false);
+            completed.current = true;
+            if (!/^(completed|complete)$/i.test(e.text)) setPaused(true);
+            if (!starting.current) {
+              running.current = false;
+              setBusy(false);
+            }
             composer.current?.focus();
           }
           if (e.type === 'status' && e.text === 'Signed in.') setSignedIn(true);
-          if (e.type === 'error')
+          if (e.type === 'error') {
+            setPaused(true);
             setMessages((old) => [
               ...old,
               { id: crypto.randomUUID(), role: 'activity', text: e.text },
             ]);
+          }
         }
       }),
     [],
@@ -91,45 +132,132 @@ export function CodexPanel({ close }: { close: () => void }) {
     setImagegen(a.imageGeneration ?? null);
     setStatus(a.label);
   }
-  async function send() {
-    if (!board || busy || !prompt.trim() || !signedIn) return;
-    const text = prompt,
-      refs = [...attachments];
+  async function runTask(task: Task) {
+    if (running.current) return;
+    running.current = true;
+    starting.current = true;
+    completed.current = false;
     setBusy(true);
     nearBottom.current = true;
-    setMessages((v) => [...v, { id: crypto.randomUUID(), role: 'user', text, assetIds: refs }]);
-    setPrompt('');
-    setAttachments([]);
+    setMessages((v) => [...v, { id: task.id, role: 'user', text: task.text, assetIds: task.refs }]);
     try {
       await flush();
-      const rect = document.querySelector('.canvas-wrap')!.getBoundingClientRect();
-      await window.imagine.codexRun(board.id, text, {
-        referenceAssetIds: refs,
+      await window.imagine.codexRun(task.boardId, task.text, {
+        referenceAssetIds: task.refs,
+        position: task.position,
+      });
+    } catch (e) {
+      setStatus(String(e));
+      setPaused(true);
+      completed.current = true;
+      setMessages((v) => [
+        ...v,
+        {
+          id: crypto.randomUUID(),
+          role: 'activity',
+          text: `Request failed: ${String(e)}. Queue paused; this request was not retried.`,
+        },
+      ]);
+    } finally {
+      starting.current = false;
+      if (completed.current) {
+        running.current = false;
+        setBusy(false);
+      }
+    }
+  }
+  useEffect(() => {
+    if (
+      busy ||
+      running.current ||
+      paused ||
+      !signedIn ||
+      !queue.length ||
+      queue[0].boardId !== board?.id
+    )
+      return;
+    const task = queue[0];
+    setQueue((v) => v.filter((t) => t.id !== task.id));
+    void runTask(task);
+  }, [queue, busy, paused, signedIn, board?.id]);
+  function send() {
+    if (!board || !prompt.trim() || !signedIn) return;
+    const refs = [...new Set([...attachments, ...(selectedCharacter?.assetIds || [])])];
+    const text =
+      prompt +
+      (selectedCharacter
+        ? `\n\nCharacter reference — ${selectedCharacter.name}:\n${selectedCharacter.description}`
+        : '');
+    if (refs.length > 5) {
+      setStatus('Attach up to five images including character references.');
+      return;
+    }
+    if (text.length > 30000 || queue.length >= 50) {
+      setStatus('Use fewer than 30,000 characters and at most 50 queued tasks.');
+      return;
+    }
+    const rect = document.querySelector('.canvas-wrap')!.getBoundingClientRect();
+    setQueue((v) => [
+      ...v,
+      {
+        id: crypto.randomUUID(),
+        boardId: board.id,
+        boardName: board.name,
+        text,
+        refs,
         position: flow.screenToFlowPosition({
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
         }),
-      });
-    } catch (e) {
-      setStatus(String(e));
-      setBusy(false);
-      setPrompt(text);
-      setAttachments(refs);
-    }
+      },
+    ]);
+    setPrompt('');
+    setAttachments([]);
+    setCharacterId('');
   }
   return (
-    <aside className="codex-panel" aria-label="Codex agent panel">
+    <aside
+      className={`codex-panel${dropActive ? ' reference-drop-active' : ''}`}
+      aria-label="Codex agent panel"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        setDropActive(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropActive(false);
+      }}
+      onDrop={async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropActive(false);
+        const folder = project?.folder;
+        try {
+          const raw = e.dataTransfer.getData(REFERENCE_MIME);
+          const character = raw ? JSON.parse(raw).characterId : undefined;
+          const assets = await readReferences(e.dataTransfer);
+          if (useWorkspace.getState().project?.folder === folder) {
+            attach(assets.map((a) => a.id));
+            if (project?.library?.characters.some((c) => c.id === character))
+              setCharacterId(character);
+          }
+        } catch (error) {
+          setStatus(String(error));
+        }
+      }}
+    >
       <header className="chat-header">
         <strong>Codex</strong>
         <div>
           <button
             title="New chat"
             aria-label="New chat"
-            disabled={busy}
+            disabled={busy || queue.length > 0}
             onClick={() =>
               void action(async () => {
                 await window.imagine.codexNewChat();
                 setMessages([]);
+                setPaused(false);
               })
             }
           >
@@ -246,6 +374,45 @@ export function CodexPanel({ close }: { close: () => void }) {
         {busy && <div className="chat-thinking">Codex is working...</div>}
       </div>
       <footer className="chat-composer">
+        {queue.length > 0 && (
+          <section className="task-queue" aria-label="Queued Codex tasks">
+            <div className="folder-row">
+              <strong>{queue.length} queued</strong>
+              <button onClick={() => setPaused(!paused)}>
+                {paused ? 'Resume queue' : 'Pause queue'}
+              </button>
+              <button onClick={() => setQueue([])}>Clear queue</button>
+            </div>
+            {queue[0].boardId !== board?.id && <p>Switch to {queue[0].boardName} to continue.</p>}
+            <small>Queue lasts for this project session.</small>
+            {queue.map((task, index) => (
+              <div key={task.id} className="queued-task">
+                <span title={task.text}>
+                  {index + 1}. {task.text}
+                </span>
+                <button
+                  aria-label={`Move queued task ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() =>
+                    setQueue((v) => {
+                      const next = [...v];
+                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                      return next;
+                    })
+                  }
+                >
+                  ↑
+                </button>
+                <button
+                  aria-label={`Cancel queued task ${index + 1}`}
+                  onClick={() => setQueue((v) => v.filter((t) => t.id !== task.id))}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
         <div className="chat-status" role="status">
           {status}
         </div>
@@ -262,6 +429,34 @@ export function CodexPanel({ close }: { close: () => void }) {
               </button>
             ))}
           </div>
+        )}
+        {!!project?.library?.characters.length && (
+          <label>
+            Character reference
+            <select
+              aria-label="Codex character reference"
+              value={characterId}
+              onChange={(e) => setCharacterId(e.target.value)}
+            >
+              <option value="">None</option>
+              {project.library.characters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {selectedCharacter && (
+              <span className="chat-attachments">
+                {selectedCharacter.assetIds.map((id) => (
+                  <img
+                    key={id}
+                    src={assetUrl(id)}
+                    alt={`Reference for ${selectedCharacter.name}`}
+                  />
+                ))}
+              </span>
+            )}
+          </label>
         )}
         <textarea
           ref={composer}
@@ -281,42 +476,33 @@ export function CodexPanel({ close }: { close: () => void }) {
           <button
             title="Attach selected images (sent to Codex)"
             aria-label="Attach selected images"
-            disabled={
-              busy || !board?.items.some((i) => selected.includes(i.id) && i.type === 'image')
-            }
-            onClick={() =>
-              setAttachments(
-                [
-                  ...new Set(
-                    board!.items
-                      .filter((i) => selected.includes(i.id) && i.type === 'image')
-                      .map((i) => i.data.assetId!),
-                  ),
-                ].slice(0, 5),
-              )
-            }
+            disabled={!referenceIds(selected).length}
+            onClick={() => attach(referenceIds(selected))}
           >
             <Paperclip size={16} />
           </button>
-          <span>Enter to send</span>
-          {busy ? (
+          <span>{busy ? 'Enter to queue' : 'Enter to send'}</span>
+          {busy && (
             <button
               title="Stop response"
-              onClick={() => void action(() => window.imagine.codexStop())}
+              onClick={() => {
+                setPaused(true);
+                void action(() => window.imagine.codexStop());
+              }}
             >
               <Square size={15} />
               Stop
             </button>
-          ) : (
-            <button
-              title="Send message"
-              aria-label="Send"
-              disabled={!signedIn || !prompt.trim() || !board}
-              onClick={() => void send()}
-            >
-              <Send size={16} />
-            </button>
           )}
+          <button
+            title="Send message"
+            aria-label={busy ? 'Queue task' : 'Send'}
+            disabled={!signedIn || !prompt.trim() || !board}
+            onClick={() => void send()}
+          >
+            <Send size={16} />
+            {busy && 'Queue'}
+          </button>
         </div>
         <small>Imagegen is online. Use “ComfyUI” for local generation.</small>
       </footer>

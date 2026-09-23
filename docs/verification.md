@@ -1,3 +1,23 @@
+# Version 0.3.6 - 2026-09-23
+
+Bumped the application and lockfile from 0.3.5 to 0.3.6 and built `release/Local Imagine Workspace Setup 0.3.6.exe` with the folders, character references, Codex task queue, reference drag/drop, and sticky-edge features. Rebuilt the same version with the left-aligned start screen and main view flush to the window, without the outer inset, border, or rounded corners. TypeScript and the production build passed. The preceding feature verification passed all 51 unit tests and 23 desktop scenarios.
+
+The freshly packaged executable passed `node scripts/smoke.mjs`, including an application-version assertion, native SQLite/Sharp, canvas editing, existing UI checks, persistent library metadata, and connected sticky-edge movement. The unsigned x64 NSIS installer is 134,667,989 bytes. SHA-256: `c4ac03d89da25bdf0c5faec073bcfcf5d3173dbca12bb053a6eb4a259667722b`. Matching checksum files are saved beside the installer. The packaged payload was tested directly; the installer was not installed into the user's account or published to GitHub.
+
+# Sticky edges - 2026-09-23
+
+Touching edges now take priority over grid and center snapping within eight screen pixels. The guide and crosshair use the configurable cyan sticky-edge color, and a join button locks/unlocks edges. Connections persist in board item data, support undo/redo, and move as connected sets through pointer dragging, alignment, and Codex move commands. Linked resizing is disabled; deleting endpoints removes stale links and duplication remaps only copied connections.
+
+Production build and TypeScript checks passed. All 51 unit tests and all 23 Electron desktop scenarios passed, including the 500-card pan benchmark. New tests cover horizontal/vertical edge priority, screen-space thresholds, shared-span requirements, chains, locked peers, grouped members, copy remapping, crosshair color, lock/unlock controls, persistence across an application restart, movement from either endpoint, deletion cleanup and undo. The locked-edge screenshot was visually inspected. No installer was produced.
+
+# Workspace features - 2026-09-23
+
+Added nested library folders, saved character profiles, dropping items into groups, reference drops into Codex, and a session queue for Codex requests. The production build and TypeScript checks passed, along with all 45 unit tests and all 21 Electron desktop scenarios. The build emits Vite's advisory about the main JavaScript chunk exceeding 500 kB.
+
+New coverage checks library validation, nested group expansion without position drift, locked items and cycle prevention, folder/profile reloads, library and character drag-to-chat, canvas-to-chat position restoration, group membership undo/redo, serial queue dispatch, reordering, cancellation, failure/stop pauses, and character/reference snapshots at enqueue time. A real hidden Electron backend restart through the browser transport preserved nested folders and character metadata; rejected metadata left the saved library intact.
+
+The queue provider is synthetic in desktop tests. No authenticated online generation was performed. Pending Codex tasks last only for the current project session; folders and character profiles are stored in the project database. No installer or release was produced for these changes.
+
 # Version 0.3.5 - 2026-09-20
 
 GitHub release preparation: all 41 unit tests and all 18 Electron desktop scenarios passed in one full run. The browser integration check passed against the real hidden Electron backend, covering project creation, saving/reopening, binary image import, image serving, recent projects, and RPC errors. TypeScript checking and the production build passed.

@@ -3,7 +3,8 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import type { Asset, Board, Job, Project, Template } from '../shared/types';
+import type { Asset, Board, Job, Project, Template, Library } from '../shared/types';
+import { emptyLibrary, validateLibrary } from '../shared/library';
 import { builtinTemplates, parseWorkflow } from '../shared/workflow';
 
 export function contained(root: string, relative: string): string {
@@ -97,6 +98,7 @@ export class ProjectStore {
   }
   snapshot(): Project {
     return {
+      library: JSON.parse(this.getSetting('library') || JSON.stringify(emptyLibrary())),
       name: this.getSetting('name')!,
       folder: this.folder,
       boards: this.list('boards'),
@@ -106,6 +108,12 @@ export class ProjectStore {
       jobs: this.list('jobs'),
       style: this.getSetting('style') || '',
     };
+  }
+  saveLibrary(library: Library) {
+    this.setting(
+      'library',
+      JSON.stringify(validateLibrary(library, this.list<Asset>('assets').map((a) => a.id))),
+    );
   }
   createBoard(name: string): Board {
     const board: Board = {
@@ -143,6 +151,10 @@ export class ProjectStore {
       ids.add(item.id);
     }
     for (const item of board.items) {
+      if (item.data.edgeLinks !== undefined && (
+        !Array.isArray(item.data.edgeLinks) || item.data.edgeLinks.length > board.items.length ||
+        item.data.edgeLinks.some((id) => typeof id !== 'string' || id === item.id || !ids.has(id))
+      )) throw new Error('Invalid edge links.');
       let p = item.parentId;
       const visited = new Set([item.id]);
       while (p) {

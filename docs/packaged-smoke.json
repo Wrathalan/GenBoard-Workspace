@@ -1,6 +1,7 @@
 {
   "passed": true,
-  "checkedAt": "2026-09-20T18:08:42.023Z",
+  "version": "0.3.6",
+  "checkedAt": "2026-09-23T05:56:13.514Z",
   "electron": "44.3.0",
   "checks": [
     "Packaged executable launch",
@@ -15,6 +16,8 @@
     "Sensitive marking and safe screenshot clipboard capture",
     "Light theme and per-item sensitive cover override",
     "Rigid movement from a grouped member",
+    "Library folder and character persistence",
+    "Sticky-edge controls and connected movement",
     "Clean shutdown"
   ]
 }

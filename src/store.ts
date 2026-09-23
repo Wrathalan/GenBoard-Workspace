@@ -1,4 +1,4 @@
-import { motionRoots, motionLocks } from '../shared/group-motion';
+import { motionRoots, motionLocks, motionComponents, rigidPositions } from '../shared/group-motion';
 import { create } from 'zustand';
 import { sensitiveIds } from '../shared/spoilers';
 import type { Asset, Board, CanvasItem, Project, Viewport, WorkspaceAPI } from '../shared/types';
@@ -89,6 +89,15 @@ export const useWorkspace = create<State>((set, get) => ({
     const b = get().board;
     if (!b) return;
     if (checkpoint) history.push(b.items);
+    const existing = new Set(items.map((i) => i.id));
+    items = items.map((i) =>
+      i.data.edgeLinks?.some((id) => !existing.has(id))
+        ? {
+            ...i,
+            data: { ...i.data, edgeLinks: i.data.edgeLinks.filter((id) => existing.has(id)) },
+          }
+        : i,
+    );
     set({
       board: { ...b, items },
       canUndo: history.past.length > 0,
@@ -221,21 +230,24 @@ export const useWorkspace = create<State>((set, get) => ({
     if (!s.board) return;
     const roots = motionRoots(s.board.items);
     const ids = new Set(s.selected.map((id) => roots.get(id)));
+    const components = motionComponents(s.board.items, roots);
+    for (const id of ids) for (const peer of components.get(id!) || []) ids.add(peer);
     if ([...motionLocks(s.board.items, roots)].some((id) => ids.has(id))) return;
     const items = s.board.items.filter((i) => ids.has(i.id));
     if (!items.length) return;
     const y = Math.min(...items.map((i) => absolutePosition(i, s.board!.items).y));
+    const proposed = new Map(
+      items.map((i) => {
+        const top = Math.min(
+          ...items.filter((p) => components.get(i.id)!.has(p.id)).map((p) => p.position.y),
+        );
+        return [i.id, { x: i.position.x, y: i.position.y + y - top }];
+      }),
+    );
+    const positions = rigidPositions(s.board.items, proposed);
     get().change(
       s.board.items.map((i) =>
-        items.includes(i)
-          ? {
-              ...i,
-              position: {
-                ...i.position,
-                y: i.position.y + y - absolutePosition(i, s.board!.items).y,
-              },
-            }
-          : i,
+        positions.has(i.id) ? { ...i, position: positions.get(i.id)! } : i,
       ),
     );
   },

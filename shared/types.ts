@@ -5,6 +5,7 @@ export type ItemData = {
   text?: string;
   label?: string;
   locked?: boolean;
+  edgeLinks?: string[];
   sensitive?: boolean;
   colors?: import('./appearance').ItemColors;
   jobId?: string;
@@ -72,6 +73,7 @@ export type Job = {
   templateSnapshot?: Template;
 };
 export type Project = {
+  library?: Library;
   name: string;
   folder: string;
   boards: Board[];
@@ -80,6 +82,11 @@ export type Project = {
   templates: Template[];
   jobs: Job[];
   style: string;
+};
+export type Library = {
+  folders: { id: string; name: string; parentId?: string }[];
+  assetFolders: Record<string, string>;
+  characters: { id: string; name: string; description: string; assetIds: string[] }[];
 };
 export type NodeInfo = {
   input: { required?: Record<string, unknown[]>; optional?: Record<string, unknown[]> };
@@ -117,6 +124,7 @@ export type RecentProject = {
   missing: boolean;
 };
 export interface WorkspaceAPI {
+  saveLibrary(library: Library): Promise<void>;
   recentProjects(): Promise<RecentProject[]>;
   openRecentProject(id: string): Promise<Project>;
   forgetRecentProject(id: string): Promise<void>;
