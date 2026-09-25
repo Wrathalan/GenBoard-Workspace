@@ -148,6 +148,13 @@ export interface WorkspaceAPI {
   createBoard(name: string): Promise<Board>;
   activateBoard(id: string): Promise<void>;
   importImages(files?: { name: string; bytes: Uint8Array }[]): Promise<Asset[]>;
+  startAssetDrag?(ids: string[]): void;
+  onAssetDragError?(callback: (message: string) => void): () => void;
+  browserState(): Promise<import('./embedded-browser').EmbeddedBrowserState>;
+  browserNavigate(url: string): Promise<void>;
+  browserCommand(command: 'back' | 'forward' | 'reload' | 'stop'): Promise<void>;
+  browserBounds(bounds: import('./embedded-browser').BrowserBounds | null): Promise<void>;
+  onBrowserState(callback: (state: import('./embedded-browser').EmbeddedBrowserState) => void): () => void;
   clipboardImage(): Promise<Asset | null>;
   copyAssetImage(assetId: string): Promise<void>;
   captureCanvas(rect: { x: number; y: number; width: number; height: number }): Promise<void>;

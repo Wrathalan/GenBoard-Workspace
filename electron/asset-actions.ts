@@ -1,4 +1,4 @@
-import { clipboard, ClipboardItem, dialog, shell, type BrowserWindow } from 'electron';
+import { clipboard, ClipboardItem, dialog, nativeImage, shell, type BrowserWindow } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -12,6 +12,19 @@ function resolveAsset(store: ProjectStore, assetId: string) {
   const file = contained(store.folder, asset.path);
   if (!fs.statSync(file).isFile()) throw new Error('Original image is missing.');
   return { asset, file };
+}
+export function assetDragItem(store: ProjectStore, ids: string[]): Electron.Item {
+  if (!Array.isArray(ids) || !ids.length || ids.length > 500)
+    throw new Error('Select between 1 and 500 images to attach.');
+  const assets = [...new Set(ids)].map((id) => resolveAsset(store, id));
+  const icon = nativeImage.createFromPath(contained(store.folder, assets[0].asset.thumbnail));
+  return {
+    file: assets[0].file,
+    files: assets.map(({ file }) => file),
+    icon: icon.isEmpty()
+      ? nativeImage.createFromPath(assets[0].file).resize({ width: 64 })
+      : icon.resize({ width: 64 }),
+  };
 }
 export function validateExportDestination(destination: string, store: ProjectStore) {
   let existing = path.resolve(destination);

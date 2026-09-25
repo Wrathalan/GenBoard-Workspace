@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave Setup 0.3.7.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave Setup 0.3.8.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -58,6 +58,16 @@ Three costume variants are arranged inside a named group. The Inspector provides
 Right-click an image for full-resolution viewing, reference assignment, clipboard copy, original-file export, and Explorer access. The same menu offers duplication, grouping, locking, fitting the selection, and deletion. These actions keep common reference-board tasks close to the artwork. Current versions also include sensitive-item and item-color controls described below.
 
 ## Open in a browser
+
+### Built-in browser and website attachments
+
+In the desktop app, click the **Workspace browser** globe in the top bar to open a website beside the canvas. Enter its address and use Back, Forward, or Reload as needed. Closing the panel keeps the page available for reopening; website sign-ins are stored separately from the workspace.
+
+Drag the **globe handle** on a canvas image or library thumbnail onto a website's attachment area. To attach several images, select their library checkboxes and drag a selected thumbnail's globe handle. The website receives the original image files. Existing thumbnail and arrow-handle drags still work for organizing references and attaching them to Codex.
+
+Websites use the internet, and dropping files shares those files with the destination website. The site must support file drops; its file-type and attachment limits still apply. Some sites restrict sign-in from embedded browsers. This built-in panel is available in the desktop application.
+
+### Run Weave in an external browser
 
 Run `npm run browser` from this folder, then open [Weave](http://127.0.0.1:4317/) in the Codex browser or another browser on this computer. After a build, `npm run start:browser` starts it directly. The Electron backend runs with its window hidden and keeps using the existing project store, image tools, ComfyUI, and Codex integration.
 
@@ -168,7 +178,7 @@ A seed and graph support repeatable settings, not a guarantee of bit-identical o
 
 ## Offline verification
 
-The Electron renderer denies network connections and navigation. Native ComfyUI requests are restricted to IPv4 loopback, with redirects disabled. Standard bundled templates are local by construction.
+The workspace renderer denies network connections and navigation. The optional built-in browser uses a separate online session without access to the workspace API. Native ComfyUI requests are restricted to IPv4 loopback, with redirects disabled. Standard bundled templates are local by construction.
 
 **A localhost server can still contain custom nodes that access the internet.** Recognized API/cloud nodes are rejected, but arbitrary custom Python cannot be sandboxed by this client. For an imported workflow's first run, disconnect external networking or block egress for the ComfyUI environment while keeping loopback available, then check the offline-test box. After a successful run, **Record successful offline test** stores your explicit confirmation, attempt ID, and timestamp. This is user-confirmed evidence, not automatic firewall attestation. Editing the workflow clears that evidence. Re-test after changing the ComfyUI environment/custom nodes.
 

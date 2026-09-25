@@ -4,6 +4,7 @@ import type { Library as LibraryData, Point } from '../shared/types';
 import { assetUrl } from './Canvas';
 import { fail, useWorkspace } from './store';
 import { readReferences, referenceIds, writeReferences } from './references';
+import { BrowserDrag } from './BrowserDrag';
 
 export function Library({ center }: { center: () => Point }) {
   const project = useWorkspace((s) => s.project)!;
@@ -161,6 +162,10 @@ export function Library({ center }: { center: () => Point }) {
               >
                 <img src={assetUrl(a.id)} alt={a.name} />
               </button>
+              <BrowserDrag
+                ids={chosen.includes(a.id) ? chosen : [a.id]}
+                label={`Drag ${chosen.includes(a.id) && chosen.length > 1 ? `${chosen.length} images` : a.name} to browser`}
+              />
               <input
                 type="checkbox"
                 aria-label={`Select reference ${a.name}`}

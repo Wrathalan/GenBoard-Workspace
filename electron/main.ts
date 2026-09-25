@@ -22,7 +22,8 @@ import { parseWorkflow, validateWorkflow } from '../shared/workflow';
 import type { CodexRunOptions } from '../shared/codex';
 import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
 import { CodexHarness } from './codex';
-import { copyAssetImage, exportAsset, revealAsset } from './asset-actions';
+import { assetDragItem, copyAssetImage, exportAsset, revealAsset } from './asset-actions';
+import { EmbeddedBrowser } from './embedded-browser';
 
 // Keep the existing profile so the rebrand preserves recent projects, preferences,
 // and the Codex sign-in. The installer appId also remains stable for upgrades.
@@ -40,6 +41,7 @@ const browserMode = process.argv.includes('--browser');
 let browserServer: Awaited<ReturnType<typeof startBrowserServer>> | undefined;
 const handlers = new Map<string, (...args: any[]) => any>();
 let win: BrowserWindow;
+let embeddedBrowser: EmbeddedBrowser | undefined;
 function send(channel: string, ...args: any[]) {
   if (browserMode) browserServer?.emit(channel, ...args);
   else if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
@@ -232,6 +234,28 @@ app
       ]).popup({ window: win });
     });
     win.webContents.on('will-navigate', (event) => event.preventDefault());
+    if (!browserMode) {
+      embeddedBrowser = new EmbeddedBrowser(win, (state) => send('browser:state', state));
+      handle('browser:state', () => embeddedBrowser!.state());
+      handle('browser:navigate', (url: string) => embeddedBrowser!.navigate(url));
+      handle('browser:command', (command: 'back' | 'forward' | 'reload' | 'stop') =>
+        embeddedBrowser!.command(command),
+      );
+      handle(
+        'browser:bounds',
+        (bounds: import('../shared/embedded-browser').BrowserBounds | null) =>
+          embeddedBrowser!.bounds(bounds),
+      );
+      ipcMain.on('asset:start-drag', (event, ids: string[]) => {
+        if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame)
+          return;
+        try {
+          event.sender.startDrag(assetDragItem(requireStore(), ids));
+        } catch (error) {
+          send('asset:drag-error', error instanceof Error ? error.message : String(error));
+        }
+      });
+    }
     win.on('close', (e) => {
       if (browserMode) return;
       if (!closing) {
@@ -464,6 +488,7 @@ if (browserMode) {
   process.on('SIGTERM', () => app.quit());
 }
 app.on('will-quit', () => {
+  embeddedBrowser?.close();
   browserServer?.close();
   codex?.close();
   jobs?.close();

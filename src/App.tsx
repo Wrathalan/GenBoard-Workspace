@@ -9,6 +9,7 @@ import {
   Frame,
   Grid2X2,
   Group,
+  Globe,
   Hand,
   ImagePlus,
   Keyboard,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 import { RecentProjects } from './RecentProjects';
 import { Library } from './Library';
+import { BrowserPanel } from './BrowserPanel';
 import { CodexPanel } from './CodexPanel';
 import { executeCanvasTool } from './codex-tools';
 import { ItemAppearance } from './ItemAppearance';
@@ -60,13 +62,14 @@ export function App() {
   useEffect(() => {
     void refreshRecents();
   }, [project?.folder, left]);
-  const [right, setRight] = useState<'generate' | 'inspect' | null>(null);
+  const [right, setRight] = useState<'generate' | 'inspect' | 'browser' | null>(null);
   const [chatOpen, setChatOpen] = useState(
     () => localStorage.getItem('imagine.chatOpen') !== 'false',
   );
   useEffect(() => {
     localStorage.setItem('imagine.chatOpen', String(chatOpen));
   }, [chatOpen]);
+  useEffect(() => window.imagine.onAssetDragError?.((message) => fail(message)), []);
   const [hand, setHand] = useState(false);
   const [viewer, setViewer] = useState<string[]>([]);
   const [help, setHelp] = useState(false);
@@ -388,7 +391,9 @@ export function App() {
         ? useWorkspace.getState()[name]()
         : runSelectionAction(name);
   return (
-    <main className={`app-shell ${chatOpen ? 'chat-open' : ''}`}>
+    <main
+      className={`app-shell ${chatOpen ? 'chat-open' : ''} ${right === 'browser' ? 'browser-open' : ''}`}
+    >
       <Appearance />
       <header className="topbar">
         <div className="top-left">
@@ -410,6 +415,19 @@ export function App() {
           </span>
         </div>
         <div className="top-right">
+          {window.imagine.startAssetDrag && (
+            <button
+              title="Workspace browser"
+              aria-label="Workspace browser"
+              className={right === 'browser' ? 'active' : ''}
+              onClick={() => {
+                setRight(right === 'browser' ? null : 'browser');
+                if (right !== 'browser') setChatOpen(false);
+              }}
+            >
+              <Globe size={17} />
+            </button>
+          )}
           <span className="save-status">
             <span className="status-dot online" />
             {saveStatus}
@@ -436,6 +454,7 @@ export function App() {
         openContext={openContext}
         closeContext={closeContext}
       />
+      {right === 'browser' && <BrowserPanel close={() => setRight(null)} />}
       {context && board && (
         <ContextMenu
           screen={context.screen}

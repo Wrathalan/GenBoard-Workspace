@@ -27,6 +27,7 @@ import { sensitiveIds } from '../shared/spoilers';
 import { GRID_SIZE, snapPositions, type SnapGuide } from '../shared/snapping';
 import { dropIntoGroup } from '../shared/group-drop';
 import { ATTACH_REFERENCES, readReferences, referenceIds, writeReferences } from './references';
+import { BrowserDrag } from './BrowserDrag';
 type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job' | 'spoiler'>;
 export const assetUrl = (id: string, original = false) =>
   window.location.protocol === 'file:'
@@ -67,6 +68,7 @@ const ImageNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
     <div className="image-node">
       <Resize id={id} selected={selected} locked={data.locked} ratio />
       <img src={assetUrl(data.assetId!)} alt={name || 'Image'} draggable={false} />
+      <BrowserDrag ids={[data.assetId!]} />
       <button
         className="reference-drag nodrag"
         title="Drag reference to Codex"

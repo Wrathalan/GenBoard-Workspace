@@ -1,3 +1,17 @@
+# Weave 0.3.8 release verification - 2026-09-24
+
+Built `release/Weave Setup 0.3.8.exe` with the embedded browser panel and original-image website attachments. TypeScript and the production build passed, all 53 unit tests and all 25 Electron desktop scenarios passed, and external-browser integration passed project create/save/reopen, metadata, imports, recent projects, and RPC checks. The desktop suite includes browser navigation and isolation, original-file drop payloads, and the 500-card benchmark.
+
+The packaged executable passed `node scripts/smoke.mjs`, including version/name/icon checks, the unchanged profile path, native SQLite/Sharp, canvas editing and persistence, references, themes, safe screenshots, and sticky-edge movement. Windows installer metadata reports Weave 0.3.8. The unsigned x64 installer is 134,962,522 bytes. SHA-256: `f2a630d2d3e542fa2b64301a1b2199265b130f4525592de936125b7e9516bd72`.
+
+Windows' interactive OLE drag loop and third-party website sign-in/uploads were not tested. The packaged payload was launched directly; the installer was not installed into the user's account during verification. Vite reports its existing main-chunk size advisory.
+
+# Embedded browser and attachments - 2026-09-24 (feature verification)
+
+The production build and TypeScript check passed, along with 53 unit tests and five targeted desktop scenarios (two embedded-browser tests and three existing library/reference tests). Browser checks cover navigation and history, popup links opening in the panel, rejection of local-file addresses, session/API isolation, window resizing, hiding behind workspace dialogs, and reopening the existing page.
+
+Attachment tests capture the real file paths produced by the canvas and multi-selection library drag handlers, then deliver those files through Chromium's drag protocol to a local attachment page. Both original PNG files arrive byte-for-byte intact. Invalid asset IDs are rejected. These tests do not exercise Windows' interactive OLE drag loop or sign-in/uploads on third-party websites. The installer was not rebuilt or published. Vite still reports its existing advisory about the main JavaScript chunk exceeding 500 kB.
+
 # Weave 0.3.7 - 2026-09-23
 
 Rebranded the app as Weave and packaged `release/Weave Setup 0.3.7.exe`. The approved White Flame icon appears in the header, favicon, native window, executable, and installer. Windows product metadata reports Weave 0.3.7, and all seven approved ICO frames were verified in both executables.

@@ -221,6 +221,25 @@ p {
   position: absolute;
   inset: 43px 0 0;
 }
+.app-shell { --browser-width: 50%; }
+.browser-open .canvas-wrap { right: var(--browser-width); }
+.browser-open .toolbar { left: calc((100% - var(--browser-width)) / 2); max-width: calc(100% - var(--browser-width) - 24px); overflow-x: auto; }
+.browser-open.chat-open .toolbar { left: calc((100% - var(--browser-width) + var(--chat-width)) / 2); }
+.browser-open .zoom-control { bottom: 72px; }
+.browser-open .help-button { right: calc(var(--browser-width) + 16px); bottom: 72px; }
+.browser-open .appearance-button { right: calc(var(--browser-width) + 62px); bottom: 72px; }
+.browser-open .welcome { width: calc(100% - var(--browser-width) - var(--welcome-inset) * 2); }
+.embedded-browser { position: absolute; inset: 43px 0 0 auto; width: var(--browser-width); display: flex; flex-direction: column; z-index: 19; background: var(--color-surface); border-left: 1px solid var(--color-border); }
+.embedded-browser .panel-title span { display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browser-navigation { display: flex; align-items: center; padding: 6px; gap: 2px; }
+.browser-navigation input { min-width: 0; }
+.browser-attach-hint, .browser-error { padding: 6px 12px 10px; font-size: 11px; line-height: 1.5; color: var(--color-muted); }
+.browser-error { color: var(--color-danger); }
+.browser-surface { flex: 1; min-height: 0; position: relative; }
+.browser-empty { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; max-width: 360px; margin: 80px auto; padding: 24px; line-height: 1.6; }
+.browser-empty small { color: var(--color-muted); }
+.browser-drag { position: absolute; top: 3px; left: 3px; padding: 5px; z-index: 5; background: var(--color-surface); border: 1px solid var(--color-border); cursor: grab; opacity: 0; }
+.image-node:hover .browser-drag, .library-asset:hover .browser-drag, .browser-drag:focus-visible, .browser-open .browser-drag { opacity: 1; }
 .react-flow__node {
   border: 0;
   background: none;
@@ -1634,6 +1653,7 @@ button.active,
   background: var(--color-surface);
   opacity: 0;
 }
+.asset-grid .library-asset > .browser-drag { width: auto; height: auto; aspect-ratio: auto; padding: 5px; }
 .image-node:hover .reference-drag,
 .reference-drag:focus-visible {
   opacity: 1;

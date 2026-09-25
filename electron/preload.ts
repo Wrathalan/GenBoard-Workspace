@@ -9,4 +9,10 @@ const api = createWorkspaceAPI(
   },
   () => ipcRenderer.send('app:finish-close'),
 );
+api.startAssetDrag = (ids) => ipcRenderer.send('asset:start-drag', ids);
+api.onAssetDragError = (callback) => {
+  const listener = (_event: unknown, message: string) => callback(message);
+  ipcRenderer.on('asset:drag-error', listener);
+  return () => ipcRenderer.removeListener('asset:drag-error', listener);
+};
 contextBridge.exposeInMainWorld('imagine', api);
