@@ -103,6 +103,13 @@ test('browser navigation, session isolation, layout, modal visibility, and reope
       BrowserWindow.getAllWindows()[0].contentView.children[0]?.getVisible(),
     );
   await expect.poll(visible).toBe(true);
+  await page.getByRole('button', { name: /^Switch board:/ }).click();
+  await expect.poll(visible).toBe(false);
+  await page.getByRole('button', { name: 'New board', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'New board', exact: true })).toBeVisible();
+  await expect.poll(visible).toBe(false);
+  await page.keyboard.press('Escape');
+  await expect.poll(visible).toBe(true);
   await page.getByRole('button', { name: 'Customize colors', exact: true }).click();
   await expect.poll(visible).toBe(false);
   await page.keyboard.press('Escape');

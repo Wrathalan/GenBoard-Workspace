@@ -35,8 +35,13 @@ export class CodexHarness {
   get busy() {
     return this.running;
   }
+  private setRunning(busy: boolean) {
+    if (this.running === busy) return;
+    this.running = busy;
+    this.emit('busy', '', { busy });
+  }
   private emit(type: CodexEvent['type'], text: string, extra: Partial<CodexEvent> = {}) {
-    const event = { type, text, ...extra };
+    const event = { type, text, ...extra } as CodexEvent;
     if (this.sendEvent) this.sendEvent(event);
     else if (!this.win.isDestroyed()) this.win.webContents.send('codex:event', event);
   }
@@ -119,7 +124,7 @@ export class CodexHarness {
         if (this.rpc === rpc) {
           this.rpc = undefined;
           this.thread = undefined;
-          this.running = false;
+          this.setRunning(false);
           this.turn = undefined;
           this.emit('error', 'Codex disconnected. Connect again to continue.');
           this.emit('done', 'Disconnected');
@@ -188,7 +193,7 @@ export class CodexHarness {
     if (this.running) throw new Error('A Codex turn is already running.');
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 30000)
       throw new Error('Enter a request under 30,000 characters.');
-    this.running = true;
+    this.setRunning(true);
     this.imageContext = {
       position: options.position || { x: 0, y: 0 },
       referenceAssetIds: options.referenceAssetIds || [],
@@ -223,7 +228,7 @@ export class CodexHarness {
       });
       this.turn = r.turn.id;
     } catch (e) {
-      this.running = false;
+      this.setRunning(false);
       this.emit('done', 'Stopped');
       throw e;
     }
@@ -304,7 +309,7 @@ export class CodexHarness {
     }
     if (m.method === 'turn/completed') {
       await Promise.allSettled(this.imageTasks.values());
-      this.running = false;
+      this.setRunning(false);
       this.turn = undefined;
       this.emit('done', m.params.turn?.error?.message || m.params.turn?.status || 'Completed');
     }
@@ -333,7 +338,7 @@ export class CodexHarness {
     this.rpc = undefined;
     this.thread = undefined;
     this.turn = undefined;
-    this.running = false;
+    this.setRunning(false);
     r?.close();
   }
 }

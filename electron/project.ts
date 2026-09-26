@@ -115,6 +115,13 @@ export class ProjectStore {
       JSON.stringify(validateLibrary(library, this.list<Asset>('assets').map((a) => a.id))),
     );
   }
+  createAndActivateBoard(name: string): Project {
+    return this.db.transaction(() => {
+      const board = this.createBoard(name);
+      this.setting('activeBoardId', board.id);
+      return this.snapshot();
+    })();
+  }
   createBoard(name: string): Board {
     const board: Board = {
       id: randomUUID(),

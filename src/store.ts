@@ -1,6 +1,7 @@
 import { motionRoots, motionLocks, motionComponents, rigidPositions } from '../shared/group-motion';
 import { create } from 'zustand';
 import { sensitiveIds } from '../shared/spoilers';
+import { boardName } from '../shared/board-navigation';
 import type { Asset, Board, CanvasItem, Project, Viewport, WorkspaceAPI } from '../shared/types';
 import { absolutePosition, duplicateItems, History } from '../shared/board';
 declare global {
@@ -23,6 +24,9 @@ type State = {
   canUndo: boolean;
   canRedo: boolean;
   editRequest: { id: string; at: number } | null;
+  codexBusy: boolean;
+  navigationPending: boolean;
+  renameBoard: (name: string) => void;
   load: (p: Project) => void;
   update: (p: Project) => void;
   select: (ids: string[]) => void;
@@ -48,6 +52,21 @@ export const useWorkspace = create<State>((set, get) => ({
   canUndo: false,
   canRedo: false,
   editRequest: null,
+  codexBusy: false,
+  navigationPending: false,
+  renameBoard: (value) => {
+    const { board, project } = get();
+    if (!board || !project) return;
+    const name = boardName(value);
+    set({
+      board: { ...board, name },
+      project: {
+        ...project,
+        boards: project.boards.map((b) => b.id === board.id ? { ...b, name } : b),
+      },
+    });
+    scheduleSave();
+  },
   load: (p) => {
     history.past = [];
     history.future = [];

@@ -41,7 +41,7 @@ export function BrowserPanel({ close }: { close: () => void }) {
     const sync = () => {
       const rect = element.getBoundingClientRect();
       const obscured = document.querySelector(
-        'dialog[open], .modal-backdrop, [role="menu"], .canvas-wrap.capturing',
+        'dialog[open], .modal-backdrop, [role="menu"], .board-switcher-menu, .canvas-wrap.capturing',
       );
       const bounds =
         obscured || !state.url || state.url === 'about:blank'

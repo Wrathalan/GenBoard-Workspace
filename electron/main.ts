@@ -11,6 +11,7 @@ import {
   Menu,
 } from 'electron';
 import fs from 'node:fs';
+import { boardName, BOARD_SWITCH_BLOCKED } from '../shared/board-navigation';
 import { startBrowserServer } from './browser-server';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -267,6 +268,7 @@ app
       send('codex:event', event),
     );
     handle('codex:status', () => codex.status());
+    handle('codex:busy', () => codex.busy);
     handle('codex:login', () => codex.login());
     handle('codex:logout', () => codex.logout());
     handle('codex:choose', () => codex.choose());
@@ -331,8 +333,12 @@ app
       emit();
     });
     handle('board:create', (name: string) => requireStore().createBoard(name));
+    handle('board:create-and-activate', (name: string) => {
+      if (codex.busy) throw new Error(BOARD_SWITCH_BLOCKED);
+      return requireStore().createAndActivateBoard(boardName(name));
+    });
     handle('board:activate', (id: string) => {
-      if (codex.busy) throw new Error('Stop the Codex turn before switching boards.');
+      if (codex.busy) throw new Error(BOARD_SWITCH_BLOCKED);
       if (
         !requireStore()
           .list<Board>('boards')

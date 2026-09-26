@@ -23,6 +23,7 @@ export function CodexPanel({ close }: { close: () => void }) {
   const board = useWorkspace((s) => s.board),
     project = useWorkspace((s) => s.project),
     selected = useWorkspace((s) => s.selected);
+  const navigationPending = useWorkspace((s) => s.navigationPending);
   const flow = useReactFlow();
   const [status, setStatus] = useState('Connect or sign in to start chatting.');
   const [signedIn, setSignedIn] = useState(false),
@@ -70,6 +71,7 @@ export function CodexPanel({ close }: { close: () => void }) {
   useEffect(
     () =>
       window.imagine.onCodexEvent((e) => {
+        if (e.type === 'busy') return;
         if (e.type === 'text')
           setMessages((old) => {
             const id = e.itemId || 'response';
@@ -96,6 +98,7 @@ export function CodexPanel({ close }: { close: () => void }) {
         else {
           setStatus(e.text);
           if (e.type === 'done') {
+            useWorkspace.setState({ codexBusy: false });
             completed.current = true;
             if (!/^(completed|complete)$/i.test(e.text)) setPaused(true);
             if (!starting.current) {
@@ -133,8 +136,9 @@ export function CodexPanel({ close }: { close: () => void }) {
     setStatus(a.label);
   }
   async function runTask(task: Task) {
-    if (running.current) return;
+    if (running.current || useWorkspace.getState().navigationPending) return;
     running.current = true;
+    useWorkspace.setState({ codexBusy: true });
     starting.current = true;
     completed.current = false;
     setBusy(true);
@@ -162,6 +166,7 @@ export function CodexPanel({ close }: { close: () => void }) {
       starting.current = false;
       if (completed.current) {
         running.current = false;
+        useWorkspace.setState({ codexBusy: false });
         setBusy(false);
       }
     }
@@ -169,6 +174,7 @@ export function CodexPanel({ close }: { close: () => void }) {
   useEffect(() => {
     if (
       busy ||
+      navigationPending ||
       running.current ||
       paused ||
       !signedIn ||
@@ -179,7 +185,7 @@ export function CodexPanel({ close }: { close: () => void }) {
     const task = queue[0];
     setQueue((v) => v.filter((t) => t.id !== task.id));
     void runTask(task);
-  }, [queue, busy, paused, signedIn, board?.id]);
+  }, [queue, busy, paused, signedIn, board?.id, navigationPending]);
   function send() {
     if (!board || !prompt.trim() || !signedIn) return;
     const refs = [...new Set([...attachments, ...(selectedCharacter?.assetIds || [])])];

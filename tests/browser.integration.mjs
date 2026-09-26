@@ -128,17 +128,27 @@ try {
   });
   await call('board:save', board, []);
   const recents = await call('project:recent');
+  assert.equal(await call('codex:busy'), false);
+  await assert.rejects(call('board:create-and-activate', '   '), /board name/);
+  await assert.rejects(call('board:create-and-activate', 'x'.repeat(101)), /100 characters/);
+  assert.equal((await call('project:current')).boards.length, 1);
+  const navigated = await call('board:create-and-activate', '  Browser board  ');
+  assert.equal(navigated.boards.length, 2);
+  assert.equal(navigated.boards.find(b => b.id === navigated.activeBoardId).name, 'Browser board');
+  await call('board:activate', board.id);
   assert.ok(recents.some((item) => item.folder.toLowerCase() === projectFolder.toLowerCase()));
   await assert.rejects(call('unknown:action'), /Unknown workspace action/);
   await stop();
   ({ call } = await launch(projectFolder));
   const reopened = await call('project:current');
+  assert.equal(reopened.activeBoardId, board.id);
+  assert.equal(reopened.boards.length, 2);
   assert.equal(reopened.boards[0].items.length, 2);
   assert.equal(reopened.boards[0].items[0].data.text, 'Saved through the browser bridge');
   assert.equal(reopened.assets.length, 1);
   assert.deepEqual(reopened.library, library);
   console.log(
-    'Browser integration passed: real project create/save/reopen, folders and characters, binary import, image serving, recents, and RPC errors.',
+    'Browser integration passed: board navigation and validation, project create/save/reopen, folders and characters, binary import, image serving, recents, and RPC errors.',
   );
   console.log('UI test fixture: ' + projectFolder);
 } finally {

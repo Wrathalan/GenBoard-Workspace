@@ -1,3 +1,21 @@
+# Weave 0.3.9 release verification — 2026-09-26
+
+All 53 unit tests and all 29 Electron desktop scenarios passed in the release run. TypeScript and the production build passed, and browser integration passed board navigation/validation, atomic creation, persistence, imports, library metadata, and RPC checks. The packaged Weave 0.3.9 executable passed the smoke test, including application identity, native SQLite/Sharp, persistence, references, themes, safe capture, and sticky-edge movement.
+
+Built the unsigned Windows x64 installer `Weave Setup 0.3.9.exe`. Windows product metadata reports Weave 0.3.9. SHA-256: `adc3fc8cd69b6f8e588a574c305c3cf14212de7a905d9bb7131c63f123421781`. The release checksum uses GitHub's normalized filename, `Weave.Setup.0.3.9.exe`.
+
+Checked the packaged application for private profile/database files, known credential patterns, and the excluded private project name; none were found. Generated regression screenshots were restored to their previous versions. The packaged payload was launched directly; installation into the user's account, authenticated generation, and third-party website uploads were not tested. Vite retains its existing bundle-size advisory.
+
+# Board navigation QoL — 2026-09-26
+
+The header switcher supports project-local search, keyboard navigation, named creation, current-board renaming, and a previous-board toggle. Codex running state is available without starting the provider; switching and creation remain blocked until the turn finishes. Creation and activation share a database transaction.
+
+Production build and all 53 unit tests passed. Desktop verification passed 27 distinct scenarios across the regression run and final targeted reruns: four board-navigation scenarios plus the existing workspace, context-menu, embedded-browser, and library/Codex queue coverage. The browser bridge integration passed the new busy-state query, name validation, atomic create/activate, switching, and persistence checks alongside its existing scenarios.
+
+New checks cover save failures without lost edits, entered-name retention and retry, transaction rollback without leftover boards, rapid duplicate submissions, initial and live Codex busy state, undo preservation after renaming, viewport restoration, history reset across projects/reloads, search and focus behavior, 26-board list scrolling, 900-pixel layouts, and embedded-browser visibility behind the switcher and naming dialog. The final narrow-layout screenshot was visually inspected. Regression-generated documentation screenshots were restored to avoid unrelated changes.
+
+Codex restriction tests use a synthetic running state; no authenticated generation was required. Vite retains its existing bundle-size advisory. This is an unversioned source patch; no installer or published release was produced.
+
 # Weave 0.3.8 release verification - 2026-09-24
 
 Built `release/Weave Setup 0.3.8.exe` with the embedded browser panel and original-image website attachments. TypeScript and the production build passed, all 53 unit tests and all 25 Electron desktop scenarios passed, and external-browser integration passed project create/save/reopen, metadata, imports, recent projects, and RPC checks. The desktop suite includes browser navigation and isolation, original-file drop payloads, and the 500-card benchmark.
@@ -14,7 +32,7 @@ Attachment tests capture the real file paths produced by the canvas and multi-se
 
 # Weave 0.3.7 - 2026-09-23
 
-Rebranded the app as Weave and packaged `release/Weave Setup 0.3.7.exe`. The approved White Flame icon appears in the header, favicon, native window, executable, and installer. Windows product metadata reports Weave 0.3.7, and all seven approved ICO frames were verified in both executables.
+Rebranded the app as Weave and packaged `release/Weave Setup 0.3.7.exe`. The approved flame icon appears in the header, favicon, native window, executable, and installer. Windows product metadata reports Weave 0.3.7, and all seven approved ICO frames were verified in both executables.
 
 TypeScript and production build passed, all 51 unit tests passed, and the browser integration check passed project create/save/reopen, library metadata, imports, recent projects, and RPC errors. The packaged smoke check passed, including Weave's app name, page title, loaded icon, and unchanged `%APPDATA%/local-imagine-workspace` profile path, plus the existing canvas and persistence scenarios. The installer retains `local.imagine.workspace` as its upgrade identity. Actual installation over an existing user installation was not performed.
 

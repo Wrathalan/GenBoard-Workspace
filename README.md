@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave Setup 0.3.8.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave Setup 0.3.9.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -85,9 +85,19 @@ Wait for **Saved locally** before closing or refreshing a tab. The browser warns
 
 ## Weave branding and upgrades (0.3.7)
 
-Weave uses the approved White Flame icon throughout the desktop app, browser tab, and Windows installer. `resources/app-icon-source.png` is the source artwork; `scripts/build-icons.mjs` regenerates the PNG and multi-size ICO assets during each build.
+Weave uses the approved flame icon throughout the desktop app, browser tab, and Windows installer. `resources/app-icon-source.png` is the source artwork; `scripts/build-icons.mjs` regenerates the PNG and multi-size ICO assets during each build.
 
 The installer retains the existing `local.imagine.workspace` identity, and the app continues using `%APPDATA%/local-imagine-workspace` for preferences and Codex sign-in. Project folders, internal protocols, and saved setting keys remain compatible with previous versions.
+
+## Board navigation
+
+Click the board name in the top bar to search boards in the current project. **Ctrl+Shift+B** opens search from workspace controls; arrow keys move through results, Enter switches, Escape closes, and Tab moves to the actions. This shortcut leaves text fields, Codex chat, and the website panel alone.
+
+Choose **New board** to enter its name, or **Rename current board** to change the active board's name. The Inspector's **Rename board** button opens the same dialog. Names are trimmed, must contain text, and can be up to 100 characters; duplicate names are allowed. Cancel or Escape dismisses an unsubmitted name. A failed save leaves your input available for retry.
+
+The arrow beside the board name returns to the last successfully visited board; clicking again toggles back. It remembers visits within the current project session, resets when changing projects or reloading, and restores each board's saved pan and zoom. Navigation saves pending edits first and stays on the current board if saving fails.
+
+While Codex is running, you can search board names, but switching and creation wait until the turn finishes or you stop it in the Codex panel. Navigation never stops Codex automatically.
 
 ## Recent projects (0.3.1)
 

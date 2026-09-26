@@ -129,6 +129,7 @@ export interface WorkspaceAPI {
   openRecentProject(id: string): Promise<Project>;
   forgetRecentProject(id: string): Promise<void>;
   codexStatus(): Promise<{ signedIn: boolean; label: string; imageGeneration?: boolean | null }>;
+  codexBusy(): Promise<boolean>;
   codexLogin(): Promise<void>;
   codexLogout(): Promise<void>;
   codexChoose(): Promise<void>;
@@ -146,6 +147,7 @@ export interface WorkspaceAPI {
   currentProject(): Promise<Project | null>;
   saveBoard(board: Board, knownManagedIds?: string[]): Promise<void>;
   createBoard(name: string): Promise<Board>;
+  createAndActivateBoard(name: string): Promise<Project>;
   activateBoard(id: string): Promise<void>;
   importImages(files?: { name: string; bytes: Uint8Array }[]): Promise<Asset[]>;
   startAssetDrag?(ids: string[]): void;

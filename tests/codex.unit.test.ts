@@ -56,6 +56,7 @@ it('routes sign-in, tools, duplicate call IDs and interruption through app-serve
   await h.login();
   expect(shell.openExternal).toHaveBeenCalledWith('https://auth.openai.com/authorize?test=1');
   await h.run('board-test', 'Add a note');
+  expect(events).toContainEqual({ type: 'busy', text: '', busy: true });
   expect(requests.find((r) => r.method === 'thread/start').params.dynamicTools[0].name).toBe(
     'imagine_workspace',
   );
@@ -101,6 +102,7 @@ it('routes sign-in, tools, duplicate call IDs and interruption through app-serve
   expect(requests.at(-1).method).toBe('turn/interrupt');
   rpc.onMessage({ method: 'turn/completed', params: { turn: { status: 'interrupted' } } });
   await vi.waitFor(() => expect(h.busy).toBe(false));
+  expect(events).toContainEqual({ type: 'busy', text: '', busy: false });
   h.close();
 });
 

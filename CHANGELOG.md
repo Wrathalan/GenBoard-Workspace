@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.9 — 2026-09-26 — Board navigation
+
+- Search this project's boards from the header, or press Ctrl+Shift+B from workspace controls. Navigate results with arrow keys and Enter.
+- Name new boards before creating them and rename the current board directly from the switcher or Inspector.
+- Return to the previous board with the header arrow, preserving saved canvas content, pan, and zoom.
+- Explain when a running Codex turn blocks navigation while keeping board search available. Creating and activating a board is now atomic, so a failed activation cannot leave an extra board behind.
+- Keep naming and navigation failures beside the action, retain entered names for retry, and prevent duplicate submissions.
+
 ## 0.3.8 — 2026-09-24
 
 - Added a desktop browser panel with an address bar, back/forward navigation, reload/stop, and a separate persistent website session.
@@ -11,7 +19,7 @@
 ### Changed
 
 - Rebranded the application as **Weave**, including the interface, window and browser titles, dialogs, Codex identity, Windows executable, and installer.
-- Added the approved White Flame icon with gold and red stars to the app header, taskbar, favicon, executable, and installer.
+- Added the approved flame icon with gold and red stars to the app header, taskbar, favicon, executable, and installer.
 - Preserved the existing installer identity and user profile location so upgrades retain recent projects, preferences, and Codex sign-in. Existing project files remain compatible.
 
 ## 0.3.6 — 2026-09-23

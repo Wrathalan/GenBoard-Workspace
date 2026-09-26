@@ -30,6 +30,9 @@ import {
   X,
 } from 'lucide-react';
 import { RecentProjects } from './RecentProjects';
+import { BoardSwitcher } from './BoardSwitcher';
+import { BoardNameDialog } from './BoardNameDialog';
+import { useBoardNavigation } from './useBoardNavigation';
 import { Library } from './Library';
 import { BrowserPanel } from './BrowserPanel';
 import { CodexPanel } from './CodexPanel';
@@ -58,6 +61,12 @@ export function App() {
   const [left, setLeft] = useState(false);
   const [recents, setRecents] = useState<RecentProject[]>([]);
   const [openingProject, setOpeningProject] = useState(false);
+  const navigation = useBoardNavigation(openingProject);
+  const [namingBoard, setNamingBoard] = useState<'create' | 'rename' | null>(null);
+  const nameBoard = (mode: 'create' | 'rename') => {
+    navigation.clearError();
+    setNamingBoard(mode);
+  };
   const refreshRecents = () => window.imagine.recentProjects().then(setRecents).catch(fail);
   useEffect(() => {
     void refreshRecents();
@@ -114,7 +123,7 @@ export function App() {
   const center = () =>
     flow.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const chooseProject = async (create: boolean, recentId?: string) => {
-    if (openingProject) return;
+    if (openingProject || navigation.transition.current) return;
     setOpeningProject(true);
     try {
       await flush();
@@ -322,7 +331,8 @@ export function App() {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (
-        document.querySelector('[role="menu"], dialog[open], .capturing') ||
+        document.querySelector('[role="menu"], .board-switcher-menu, dialog[open], .capturing') ||
+        useWorkspace.getState().navigationPending ||
         (e.target as HTMLElement).closest('.codex-panel')
       )
         return;
@@ -408,11 +418,25 @@ export function App() {
           <div className="brand-mark">
             <img src="./app-icon.png" alt="Weave" width={31} height={31} />
           </div>
-          <span className="project-name">
-            {project?.name || 'Weave'}
+          <div className="project-name">
+            <span className="project-title">{project?.name || 'Weave'}</span>
             <span className="slash">/</span>
-            <span>{board?.name || 'Workspace'}</span>
-          </span>
+            {project && board ? (
+              <BoardSwitcher
+                key={project.folder}
+                boards={project.boards}
+                board={board}
+                busy={navigation.pending}
+                blocked={navigation.blocked}
+                error={namingBoard ? '' : navigation.error}
+                previous={navigation.previous}
+                choose={navigation.choose}
+                nameBoard={nameBoard}
+              />
+            ) : (
+              <span>Workspace</span>
+            )}
+          </div>
         </div>
         <div className="top-right">
           {window.imagine.startAssetDrag && (
@@ -447,6 +471,21 @@ export function App() {
           </button>
         </div>
       </header>
+      {namingBoard && project && board && (
+        <BoardNameDialog
+          key={`board-name:${project.folder}`}
+          mode={namingBoard}
+          initialName={namingBoard === 'create' ? `Board ${project.boards.length + 1}` : board.name}
+          busy={navigation.pending}
+          blocked={navigation.blocked}
+          error={navigation.error}
+          submit={namingBoard === 'create' ? navigation.create : navigation.rename}
+          close={() => {
+            setNamingBoard(null);
+            navigation.clearError();
+          }}
+        />
+      )}
       <Canvas
         key={board?.id || 'empty'}
         hand={hand}
@@ -518,40 +557,31 @@ export function App() {
                   Boards
                   <button
                     title="Add board"
-                    onClick={async () => {
-                      try {
-                        await flush();
-                        const b = await window.imagine.createBoard(
-                          `Board ${project.boards.length + 1}`,
-                        );
-                        await window.imagine.activateBoard(b.id);
-                        const p = await window.imagine.currentProject();
-                        if (p) useWorkspace.getState().load(p);
-                      } catch (e) {
-                        fail(e);
-                      }
-                    }}
+                    disabled={navigation.pending || !!navigation.blocked}
+                    onClick={() => nameBoard('create')}
                   >
                     <Plus size={15} />
                   </button>
                 </div>
+                {navigation.blocked && (
+                  <p className="board-navigation-notice" role="status">
+                    {navigation.blocked}
+                  </p>
+                )}
+                {navigation.error && !namingBoard && (
+                  <p className="board-name-error" role="alert">
+                    {navigation.error}
+                  </p>
+                )}
                 {project.boards.map((b) => (
                   <button
                     className={`board-link ${b.id === board?.id ? 'active' : ''}`}
                     key={b.id}
-                    onClick={async () => {
-                      try {
-                        await flush();
-                        await window.imagine.activateBoard(b.id);
-                        const p = await window.imagine.currentProject();
-                        if (p) useWorkspace.getState().load(p);
-                      } catch (e) {
-                        fail(e);
-                      }
-                    }}
+                    disabled={navigation.pending || !!navigation.blocked}
+                    onClick={() => void navigation.choose(b.id)}
                   >
                     <Frame size={14} />
-                    {b.name}
+                    {b.id === board?.id ? board.name : b.name}
                   </button>
                 ))}
                 <Library key={project.folder} center={center} />
@@ -584,15 +614,15 @@ export function App() {
           <div className="panel-scroll">
             <label>
               Board name
-              <input
-                aria-label="Board name"
-                value={board?.name || ''}
-                onChange={(e) => {
-                  useWorkspace.setState({ board: { ...board!, name: e.target.value } });
-                  useWorkspace.getState().change(board!.items, false);
-                }}
-              />
+              <input aria-label="Board name" value={board?.name || ''} readOnly />
             </label>
+            <button
+              className="wide secondary"
+              disabled={navigation.pending}
+              onClick={() => nameBoard('rename')}
+            >
+              Rename board
+            </button>
             <div className="section-title">{selected.length} selected</div>
             {!selected.length && (
               <p className="micro">Select an image, note, or group to inspect it.</p>
@@ -827,6 +857,7 @@ export function App() {
               ['Undo / redo', 'Ctrl + Z / Ctrl + Y'],
               ['Delete selection', 'Delete'],
               ['Save', 'Ctrl + S'],
+              ['Find a board', 'Ctrl + Shift + B'],
               ['Context menu', 'Right-click / Shift + F10'],
               ['Pan with right mouse', 'Right-drag'],
             ].map(([label, key]) => (
