@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.10 — 2026-10-04
+
+### Codex image attachments
+
+- Send reference image data directly to Codex as ordered attachments, avoiding Windows-path handoff failures and preserving original bytes.
+- Raise chat and character references from five to 16, share validation across transports, deduplicate overlapping references, and show the combined count.
+- Wrap thumbnail previews and reject invalid, missing, oversized, or excessive attachments explicitly. Tell the native generator to report any lower runtime limit instead of silently using a subset.
+
+### Tabbed boards
+
+- Switch boards directly from a scrollable header tab strip, with the active board highlighted and kept in view.
+- Create a named board with the + button and double-click the active tab to rename it. The search menu and previous-board button remain available.
+- Use Left/Right or Home/End to focus tabs, then Enter or Space to switch, retaining save-before-navigation and Codex busy protection.
+
+### LAN ComfyUI
+
+- Connect to ComfyUI on another computer using an explicit host/IP and port in Generate. Loopback remains the default; desktop, browser mode, and the workspace agent share the connection API.
+- Show the connected endpoint and explain LAN listen/firewall requirements when connections fail.
+- Preserve the existing connection after a failed reconnect and keep unfinished jobs tied to their original server.
+
 ## 0.3.9 — 2026-09-26 — Board navigation
 
 - Search this project's boards from the header, or press Ctrl+Shift+B from workspace controls. Navigate results with arrow keys and Enter.

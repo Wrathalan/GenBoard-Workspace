@@ -136,6 +136,107 @@ test('queued Codex tasks wait for completion, retain references, and pause on fa
   await expect(page.getByLabel('Queued Codex tasks')).toHaveCount(0);
 });
 
+test('16 references cross the real Codex handoff as images; overflow remains editable', async () => {
+  const originals: number[][] = [];
+  for (let index = 0; index < 17; index++)
+    originals.push([
+      ...(await sharp({
+        create: {
+          width: 10,
+          height: 12,
+          channels: 4,
+          background: { r: index * 10, g: 50, b: 80, alpha: 0.5 },
+        },
+      })
+        .png()
+        .toBuffer()),
+    ]);
+  const ids = await page.evaluate(async (originals) => {
+    const assets = await window.imagine.importImages(
+      originals.map((bytes, index) => ({ name: `ref-${index}.png`, bytes: new Uint8Array(bytes) })),
+    );
+    await window.imagine.saveLibrary({
+      folders: [],
+      assetFolders: {},
+      characters: [
+        {
+          id: 'many',
+          name: 'Many references',
+          description: 'Preserve identity',
+          assetIds: assets.slice(0, 16).map((a) => a.id),
+        },
+      ],
+    });
+    return assets.map((a) => a.id);
+  }, originals);
+  await page.reload();
+  await app.evaluate(() => {
+    const codex = (globalThis as any).imagineTest.getCodex();
+    (globalThis as any).attachmentRequests = [];
+    // Keep the real run/validation/encoding path; replace only the RPC provider.
+    codex.status = async () => {
+      codex.rpc = {
+        request: async (method: string, params: unknown) => {
+          (globalThis as any).attachmentRequests.push({ method, params });
+          return method === 'thread/start'
+            ? { thread: { id: 'attachment-thread' } }
+            : { turn: { id: 'attachment-turn' } };
+        },
+        close: () => {},
+      };
+      return { signedIn: true, label: 'Synthetic attachment provider' };
+    };
+  });
+  await page.getByRole('button', { name: 'Connect / refresh', exact: true }).click();
+  await page.getByLabel('Codex character reference').selectOption('many');
+  await page.evaluate(
+    (ids) =>
+      window.dispatchEvent(
+        new CustomEvent('imagine:attach-references', { detail: [ids[0], ids[16]] }),
+      ),
+    ids,
+  );
+  await expect(page.getByLabel('Reference image count')).toHaveText('17/16 reference images');
+  await page.getByLabel('Codex request').fill('Use the whole reference set');
+  await page.getByLabel('Codex request').press('Enter');
+  await expect(page.locator('.chat-status')).toContainText('up to 16');
+  await expect(page.getByLabel('Codex request')).toHaveValue('Use the whole reference set');
+  expect(await app.evaluate(() => (globalThis as any).attachmentRequests.length)).toBe(0);
+  await page.getByLabel('Remove reference 2', { exact: true }).click();
+  await expect(page.getByLabel('Reference image count')).toHaveText('16/16 reference images');
+  await page.screenshot({ path: path.join(folder, 'sixteen-references.png') });
+  await page.getByLabel('Codex request').press('Enter');
+  await expect
+    .poll(() =>
+      app.evaluate(
+        () =>
+          (globalThis as any).attachmentRequests.filter((r: any) => r.method === 'turn/start')
+            .length,
+      ),
+    )
+    .toBe(1);
+  const input = await app.evaluate(
+    () =>
+      (globalThis as any).attachmentRequests.find((r: any) => r.method === 'turn/start').params
+        .input,
+  );
+  expect(input.filter((i: any) => i.type === 'localImage')).toHaveLength(0);
+  const images = input.filter((i: any) => i.type === 'image');
+  expect(images).toHaveLength(16);
+  expect(images.map((i: any) => [...Buffer.from(i.url.split(',')[1], 'base64')])).toEqual(
+    originals.slice(0, 16),
+  );
+  const rejection = await page.evaluate(async (ids) => {
+    try {
+      const p = (await window.imagine.currentProject())!;
+      await window.imagine.codexRun(p.activeBoardId, 'Too many', { referenceAssetIds: ids });
+    } catch (error) {
+      return String(error);
+    }
+  }, ids);
+  expect(rejection).toContain('up to 16');
+});
+
 test('dropping an existing image into a group preserves membership through undo and reopen', async () => {
   await page.getByLabel('Close Codex').click();
   await page.evaluate(async () => {

@@ -366,6 +366,9 @@ export function Canvas({
   return (
     <div
       className={`canvas-wrap${capturing ? ' capturing' : ''}`}
+      id="board-canvas"
+      role={board ? 'tabpanel' : undefined}
+      aria-labelledby={board ? `board-tab-${board.id}` : undefined}
       tabIndex={-1}
       onPointerDownCapture={(e) => {
         if (

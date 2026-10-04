@@ -7,6 +7,7 @@ import {
 } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { networkInterfaces } from 'node:os';
 import sharp from 'sharp';
 import { fakeComfy } from './fake-comfy';
 let app: ElectronApplication;
@@ -40,6 +41,101 @@ test.beforeEach(async ({}, info) => {
 });
 test.afterEach(async () => {
   await app?.close();
+});
+
+test('LAN ComfyUI connects, uploads, generates, downloads, and preserves server identity on reconnect', async () => {
+  const address = Object.values(networkInterfaces())
+    .flat()
+    .find((n) => n?.family === 'IPv4' && !n.internal)?.address;
+  test.skip(!address, 'No non-loopback IPv4 interface available for a real LAN transport test.');
+  const server = await fakeComfy('0.0.0.0');
+  try {
+    await page.getByRole('button', { name: 'Generate with ComfyUI' }).click();
+    await page.getByLabel('ComfyUI host').fill(address!);
+    await page.getByLabel('ComfyUI port').fill(String(server.port));
+    await page.getByRole('button', { name: 'Connect', exact: true }).click();
+    await expect(page.getByText('ComfyUI connected', { exact: true })).toBeVisible();
+    await expect.poll(() => server.connections).toBe(1);
+    await expect(page.locator('.generation')).toContainText(`http://${address}:${server.port}`);
+    const project = (await page.evaluate(() => window.imagine.currentProject()))!;
+    const [asset] = await page.evaluate(
+      (bytes) =>
+        window.imagine.importImages([{ name: 'lan-reference.png', bytes: new Uint8Array(bytes) }]),
+      [...server.png],
+    );
+    const request = {
+      templateId: 'sdxl-image',
+      boardId: project.activeBoardId,
+      prompt: 'LAN transport fixture',
+      negative: '',
+      checkpoint: 'sdxl-test.safetensors',
+      seed: 12,
+      count: 1,
+      width: 1024,
+      height: 1024,
+      referenceAssetId: asset.id,
+      sourceIds: [asset.id],
+      position: { x: 0, y: 0 },
+    };
+    await page.evaluate((r) => window.imagine.generate(r), request);
+    await expect
+      .poll(async () => (await page.evaluate(() => window.imagine.currentProject()))!.jobs[0].state)
+      .toBe('completed');
+    expect(server.uploads).toBe(1);
+    await expect(page.locator('.image-node img')).toBeVisible();
+    expect(
+      await page.locator('.image-node img').evaluate((img: HTMLImageElement) => img.naturalWidth),
+    ).toBe(128);
+    expect((await page.evaluate(() => window.imagine.currentProject()))!.jobs[0].endpoint).toBe(
+      `http://${address}:${server.port}`,
+    );
+    server.setMode('offline');
+    await expect(
+      page.evaluate(({ port, host }) => window.imagine.connect(port, host), {
+        port: server.port,
+        host: address,
+      }),
+    ).rejects.toThrow('503');
+    expect(server.connections).toBe(1);
+    server.setMode('success');
+    await page.evaluate((r) => window.imagine.generate(r), request);
+    await expect
+      .poll(
+        async () =>
+          (await page.evaluate(() => window.imagine.currentProject()))!.jobs.filter(
+            (j) => j.state === 'completed',
+          ).length,
+      )
+      .toBe(2);
+    await page.screenshot({ path: 'test-results/comfy-lan.png' });
+    await app.close();
+    await launch(folder, false);
+    await page.evaluate(({ port, host }) => window.imagine.connect(port, host), {
+      port: server.port,
+      host: address,
+    });
+    expect(server.submissions).toBe(2);
+    server.setMode('hold');
+    const [held] = await page.evaluate((r) => window.imagine.generate(r), request);
+    await expect
+      .poll(
+        async () =>
+          (await page.evaluate(() => window.imagine.currentProject()))!.jobs.find(
+            (j) => j.id === held.id,
+          )!.state,
+      )
+      .toBe('running');
+    await expect(
+      page.evaluate((port) => window.imagine.connect(port), server.port),
+    ).rejects.toThrow('before changing servers');
+    const running = (await page.evaluate(() => window.imagine.currentProject()))!.jobs.find(j => j.id === held.id)!;
+    server.progress(running.promptId!);
+    await expect.poll(async () => (await page.evaluate(() => window.imagine.currentProject()))!.jobs.find(j => j.id === held.id)!.progress).toBe('Node 5: 4 / 10');
+    await page.evaluate((id) => window.imagine.cancelJob(id), held.id);
+    expect(server.interrupted).toBe(1);
+  } finally {
+    await server.close();
+  }
 });
 test('canvas edits, image import, clipboard, groups, resize, compare, persistence and project relocation', async () => {
   const server = await fakeComfy();

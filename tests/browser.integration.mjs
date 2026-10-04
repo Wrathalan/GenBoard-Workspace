@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
+import http from 'node:http';
 import sharp from 'sharp';
 
 const root = process.cwd();
@@ -13,6 +14,12 @@ const fixture = fs.mkdtempSync(path.join(root, '.test-data', 'browser-integratio
 const projectFolder = path.join(fixture, 'project');
 let processHandle;
 let ws;
+const comfyMock = http.createServer((req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(req.url === '/system_stats' ? { devices: [{ name: 'Browser Comfy fixture' }] }
+    : req.url === '/queue' ? { queue_running: [], queue_pending: [] } : {}));
+});
+const comfySocket = new WebSocketServer({ server: comfyMock });
 async function stop() {
   if (ws) {
     ws.close();
@@ -85,10 +92,14 @@ async function launch(project) {
   return { call, url, cookie };
 }
 try {
+  await new Promise(resolve => comfyMock.listen(0, resolve));
   let { call, url, cookie } = await launch();
   assert.equal(await call('project:current'), null);
   await assert.rejects(call('project:open-path', 'relative/folder', true), /full path/);
   const project = await call('project:open-path', projectFolder, true);
+  const caps = await call('comfy:connect', comfyMock.address().port, 'localhost');
+  assert.equal(caps.endpoint, `http://localhost:${comfyMock.address().port}`);
+  await assert.rejects(call('comfy:connect', 8188, 'http://bad-host/path'), /hostname or IP/);
   const board = project.boards[0];
   board.items.push({
     id: 'browser-note',
@@ -129,6 +140,8 @@ try {
   await call('board:save', board, []);
   const recents = await call('project:recent');
   assert.equal(await call('codex:busy'), false);
+  await assert.rejects(call('codex:run', board.id, 'Too many references', { referenceAssetIds: Array.from({ length: 17 }, (_, i) => `ref-${i}`) }), /up to 16/);
+  await assert.rejects(call('codex:run', board.id, 'Invalid references', { referenceAssetIds: [42] }), /Invalid reference/);
   await assert.rejects(call('board:create-and-activate', '   '), /board name/);
   await assert.rejects(call('board:create-and-activate', 'x'.repeat(101)), /100 characters/);
   assert.equal((await call('project:current')).boards.length, 1);
@@ -148,9 +161,12 @@ try {
   assert.equal(reopened.assets.length, 1);
   assert.deepEqual(reopened.library, library);
   console.log(
-    'Browser integration passed: board navigation and validation, project create/save/reopen, folders and characters, binary import, image serving, recents, and RPC errors.',
+    'Browser integration passed: ComfyUI hostname connection, board navigation and validation, project create/save/reopen, folders and characters, binary import, image serving, recents, and RPC errors.',
   );
   console.log('UI test fixture: ' + projectFolder);
 } finally {
   await stop();
+  comfySocket.clients.forEach(socket => socket.terminate());
+  comfySocket.close();
+  await new Promise(resolve => comfyMock.close(resolve));
 }

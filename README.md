@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave Setup 0.3.9.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave Setup 0.3.10.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 For development, install Node.js 24 LTS and run:
 
@@ -91,11 +91,13 @@ The installer retains the existing `local.imagine.workspace` identity, and the a
 
 ## Board navigation
 
-Click the board name in the top bar to search boards in the current project. **Ctrl+Shift+B** opens search from workspace controls; arrow keys move through results, Enter switches, Escape closes, and Tab moves to the actions. This shortcut leaves text fields, Codex chat, and the website panel alone.
+Click a board tab in the top bar to switch boards. The active tab is highlighted, and the strip scrolls horizontally when needed. With a tab focused, Left/Right or Home/End moves focus; Enter or Space switches to that board.
 
-Choose **New board** to enter its name, or **Rename current board** to change the active board's name. The Inspector's **Rename board** button opens the same dialog. Names are trimmed, must contain text, and can be up to 100 characters; duplicate names are allowed. Cancel or Escape dismisses an unsubmitted name. A failed save leaves your input available for retry.
+The chevron beside the tabs opens board search. **Ctrl+Shift+B** opens search from workspace controls; arrow keys move through results, Enter switches, Escape closes, and Tab moves to the actions. This shortcut leaves text fields, Codex chat, and the website panel alone.
 
-The arrow beside the board name returns to the last successfully visited board; clicking again toggles back. It remembers visits within the current project session, resets when changing projects or reloading, and restores each board's saved pan and zoom. Navigation saves pending edits first and stays on the current board if saving fails.
+Use the **+** button or choose **New board** in search to enter a new board's name. Double-click the active tab or choose **Rename current board** to rename it. The Inspector's **Rename board** button opens the same dialog. Names are trimmed, must contain text, and can be up to 100 characters; duplicate names are allowed. Cancel or Escape dismisses an unsubmitted name. A failed save leaves your input available for retry.
+
+The arrow beside the tabs returns to the last successfully visited board; clicking again toggles back. It remembers visits within the current project session, resets when changing projects or reloading, and restores each board's saved pan and zoom. Navigation saves pending edits first and stays on the current board if saving fails.
 
 While Codex is running, you can search board names, but switching and creation wait until the turn finishes or you stop it in the Codex panel. Navigation never stops Codex automatically.
 
@@ -107,7 +109,7 @@ The start screen and project drawer list your last 12 successfully opened projec
 
 The project library supports nested folders. Enter a folder name and choose **New folder**; open a folder to create subfolders. Drag library images or PNG/JPEG/WebP files onto a folder to add them. Select library checkboxes to move several images with the folder selector. Removing a folder keeps its images and moves its contents to its parent. Folder organization is saved inside the project.
 
-Select 1–5 library images or canvas images, then choose **New character from selection**. Save a name and identity details with the reference images. Edit a saved character by clicking it. In Codex, choose the character from the reference selector or drag the character into the panel; its images and identity details accompany the next request. The five-image attachment limit includes character images.
+Select 1–16 library images or canvas images, then choose **New character from selection**. Save a name and identity details with the reference images. Edit a saved character by clicking it. In Codex, choose the character from the reference selector or drag the character into the panel; its images and identity details accompany the next request. The 16-image attachment limit includes character images; overlapping references are sent only once. The composer shows the combined count.
 
 Drag an image, note, or whole group onto an unlocked group to join it. The destination grows to contain the new members, positions are preserved, and the change supports undo/redo. Existing groups still move as a unit. Library images and dropped files can also be placed directly into groups. Drag a canvas image into the Codex panel, or use its corner drag handle, to attach it while keeping its board position. References are sent online only when the request runs.
 
@@ -132,7 +134,9 @@ Codex opens docked to the left edge, with the canvas beside it. The bottom **Cod
 
 Use **Sign into Codex** to complete the official browser sign-in. **Connect / refresh** checks your existing app sign-in. Chat settings hold executable selection, sign-out and provider imagegen capability status. The app finds an installed `codex.exe` in the normal desktop location or PATH; it does not download or install Codex. Its separate profile preserves your other Codex app sign-ins.
 
-The imagegen skill is loaded for chat turns and uses Codex's native image-generation capability through your signed-in account. Ask for new images or edits in normal language. Select board images and click the paperclip to attach up to five references. **Attachments are sent to Codex online**, along with your request and requested workspace context. Completed generated images are copied into local project output storage, shown in chat, and placed beside the current canvas center. Repeated completion events are deduplicated. Partial results do not create cards. The revised prompt and reference asset IDs are recorded locally. Imported images can be repositioned or removed using normal undo/history.
+The imagegen skill is loaded for chat turns and uses Codex's native image-generation capability through your signed-in account. Ask for new images or edits in normal language. Select board images and click the paperclip to attach up to 16 references. **Attachments are sent to Codex online**, along with your request and requested workspace context. Weave sends ordered, numbered image attachments containing the original bytes, not Windows file paths. Completed generated images are copied into local project output storage, shown in chat, and placed beside the current canvas center. Repeated completion events are deduplicated. Partial results do not create cards. The revised prompt and reference asset IDs are recorded locally. Imported images can be repositioned or removed using normal undo/history.
+
+The 16-reference count matches the [documented GPT Image editing limit](https://developers.openai.com/api/reference/resources/images/methods/edit), including GPT Image 2.5. The signed-in Codex runtime controls the native generator and its available model; Weave does not force a model or bypass a lower tool limit. If the tool cannot include every requested reference, the imagegen instructions require reporting that limitation instead of silently choosing a subset. Supported references are non-animated PNG, JPEG, and WebP. Weave bounds inline attachment data to 20 MiB encoded per image and 128 MiB encoded per request (roughly 15 MiB and 96 MiB of original files). Missing, invalid, or oversized references stop submission with an indexed error; Weave never silently resizes or drops them.
 
 The project graphic-anime style remains the default; explicit later directions override it. ComfyUI remains available when you ask for local generation. Native imagegen uses OpenAI online and does not require the ComfyUI server; the app does not silently substitute an API-key image service if imagegen is unavailable. Provider/account support and the installed Codex version determine availability. The host uses the [app-server protocol](https://learn.chatgpt.com/docs/app-server) and installed protocol definitions for image-generation completion events.
 
@@ -160,7 +164,11 @@ Use **Shift+F10** or the keyboard Menu key to open a context menu, arrows/Home/E
 
 ## Connect ComfyUI
 
-The app **does not install, launch, upgrade, or modify ComfyUI**. Start your existing installation separately, then open **Generate**, enter its loopback port (default `8188`), and select **Connect**. Remote hosts, LAN addresses, and redirects are not accepted.
+The app **does not install, launch, upgrade, or modify ComfyUI**. Start your existing installation separately, then open **Generate**, enter the **ComfyUI host** and **port**, and select **Connect**. The default is `127.0.0.1` on port `8188`; for another computer, use its LAN IP (for example `192.168.1.50`) or hostname. Enter only the host, without `http://`, a path, or a port; the port has its own field. IPv4, IPv6, and resolvable hostnames are supported over HTTP. HTTPS, authentication, and reverse-proxy subpaths are not configured by this interface; redirects remain disabled.
+
+For a standard Python ComfyUI installation on the other computer, start it with `python main.py --listen 0.0.0.0 --port 8188` and allow that port through the host's firewall on your private network. Use the computer's actual LAN IP in Weave, not `0.0.0.0`. These options are defined in [ComfyUI's CLI](https://github.com/Comfy-Org/ComfyUI/blob/master/comfy/cli_args.py). Weave sends prompts and selected reference images to that server and saves downloaded outputs in the local project. The connected endpoint appears beneath the connection controls.
+
+Desktop, browser mode, and the workspace agent use the same host-aware connection. Browser mode connects from the computer running the Weave backend. Reconnect using the same host and port to recover unfinished jobs; changing servers is blocked while submitted jobs remain unresolved. A failed connection attempt preserves the backend's previous connection.
 
 The included SDXL templates use standard ComfyUI nodes:
 
@@ -188,9 +196,9 @@ A seed and graph support repeatable settings, not a guarantee of bit-identical o
 
 ## Offline verification
 
-The workspace renderer denies network connections and navigation. The optional built-in browser uses a separate online session without access to the workspace API. Native ComfyUI requests are restricted to IPv4 loopback, with redirects disabled. Standard bundled templates are local by construction.
+The workspace renderer denies network connections and navigation. The optional built-in browser uses a separate online session without access to the workspace API. Native ComfyUI requests go to the explicitly configured HTTP host and port, with redirects disabled. The default is loopback; LAN generation runs on the selected computer. Standard bundled templates use locally installed models on that server.
 
-**A localhost server can still contain custom nodes that access the internet.** Recognized API/cloud nodes are rejected, but arbitrary custom Python cannot be sandboxed by this client. For an imported workflow's first run, disconnect external networking or block egress for the ComfyUI environment while keeping loopback available, then check the offline-test box. After a successful run, **Record successful offline test** stores your explicit confirmation, attempt ID, and timestamp. This is user-confirmed evidence, not automatic firewall attestation. Editing the workflow clears that evidence. Re-test after changing the ComfyUI environment/custom nodes.
+**A local or LAN server can still contain custom nodes that access the internet.** Recognized API/cloud nodes are rejected, but arbitrary custom Python cannot be sandboxed by this client. For an imported workflow's first run, block external networking for the ComfyUI environment while keeping its loopback or LAN connection available, then check the offline-test box. After a successful run, **Record successful offline test** stores your explicit confirmation, attempt ID, and timestamp. This is user-confirmed evidence, not automatic firewall attestation. Editing the workflow clears that evidence. Re-test after changing the ComfyUI environment/custom nodes.
 
 Full offline acceptance: with external networking blocked, import images, edit/group the board, save/reopen it, and run text-to-image and image-to-image through a compatible local installation. Nothing should require an external request.
 

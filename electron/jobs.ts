@@ -9,6 +9,7 @@ export class JobService {
   client?: ComfyClient;
   caps?: Capabilities;
   busy = false;
+  connecting = false;
   timer?: NodeJS.Timeout;
   disposed = false;
   constructor(
@@ -22,10 +23,10 @@ export class JobService {
         this.store.saveJob(j);
       }
   }
-  async connect(port: number) {
-    if (this.busy) throw new Error('Wait for the current queue operation before reconnecting.');
-    this.client?.close();
-    this.client = new ComfyClient(port, (e) => {
+  async connect(port: number, host?: string) {
+    if (this.busy || this.connecting) throw new Error('Wait for the current queue operation before reconnecting.');
+    const client = new ComfyClient(port, (e) => {
+      if (this.client !== client) return;
       if (!e.data?.prompt_id) return;
       const j = this.store
         .list<Job>('jobs')
@@ -35,15 +36,33 @@ export class JobService {
         this.store.put('jobs', j);
         this.emit();
       }
-    });
-    this.caps = await this.client.connect();
-    if (this.timer) clearInterval(this.timer);
-    this.timer = setInterval(() => void this.tick(), 1800);
+    }, host);
+    const outstanding = this.store.list<Job>('jobs').find((j) =>
+      j.endpoint !== client.endpoint &&
+      (['running', 'submitting', 'connection-unknown'].includes(j.state) || (j.state === 'queued' && j.promptId)),
+    );
+    if (outstanding) throw new Error(`Finish or reconcile active jobs on ${outstanding.endpoint} before changing servers.`);
+    this.connecting = true;
+    try {
+      const caps = await client.connect();
+      if (this.disposed) throw new Error('The project was closed while connecting.');
+      this.client?.close();
+      this.client = client;
+      this.caps = caps;
+      if (this.timer) clearInterval(this.timer);
+      this.timer = setInterval(() => void this.tick(), 1800);
+    } catch (e) {
+      client.close();
+      throw e;
+    } finally {
+      this.connecting = false;
+    }
     await this.tick();
     return this.caps;
   }
   async enqueue(r: GenerateRequest): Promise<Job[]> {
-    if (!this.client || !this.caps) throw new Error('Connect to local ComfyUI first.');
+    if (this.connecting) throw new Error('Wait for the ComfyUI connection to finish.');
+    if (!this.client || !this.caps) throw new Error('Connect to ComfyUI first.');
     const t = this.store.list<Template>('templates').find((t) => t.id === r.templateId);
     if (!t) throw new Error('Choose a workflow.');
     if (!t.builtin && !t.offlineVerified && !r.offlineTestConfirmed)
@@ -110,7 +129,7 @@ export class JobService {
     return jobs;
   }
   async tick() {
-    if (this.busy || !this.client || this.disposed) return;
+    if (this.busy || this.connecting || !this.client || this.disposed) return;
     this.busy = true;
     try {
       const queue = await this.client.queue();
@@ -281,7 +300,7 @@ export class JobService {
     })();
   }
   async cancel(id: string) {
-    if (this.busy) throw new Error('Queue is updating. Try cancel again in a moment.');
+    if (this.busy || this.connecting) throw new Error('Queue is updating. Try cancel again in a moment.');
     this.busy = true;
     let finished = false;
     try {
@@ -294,7 +313,7 @@ export class JobService {
             'Submission outcome is unknown. Inspect ComfyUI before resolving this attempt.',
           );
         if (!this.client || this.client.endpoint !== j.endpoint)
-          throw new Error('Reconnect to this job’s local port before cancelling.');
+          throw new Error(`Reconnect to ${j.endpoint} before cancelling this job.`);
         finished = (await this.client.cancel(j.promptId)) === 'finished';
       }
       if (!finished) {

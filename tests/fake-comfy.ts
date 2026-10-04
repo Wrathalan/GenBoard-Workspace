@@ -2,7 +2,7 @@ import http from 'node:http';
 import { WebSocketServer } from 'ws';
 import sharp from 'sharp';
 import { builtinTemplates } from '../shared/workflow';
-export async function fakeComfy() {
+export async function fakeComfy(host = '127.0.0.1') {
   const png = await sharp({
     create: { width: 128, height: 192, channels: 3, background: '#aabb88' },
   })
@@ -25,7 +25,7 @@ export async function fakeComfy() {
         output_node: n.class_type === 'SaveImage',
         python_module: 'nodes',
       };
-  let mode: 'success' | 'hold' | 'reject' | 'drop' | 'partial' = 'success';
+  let mode: 'success' | 'hold' | 'reject' | 'drop' | 'partial' | 'offline' = 'success';
   let submissions = 0;
   let interrupted = 0;
   let uploads = 0;
@@ -43,7 +43,7 @@ export async function fakeComfy() {
       res.writeHead(code, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(v));
     };
-    if (url.pathname === '/object_info') return json(nodes);
+    if (url.pathname === '/object_info') return mode === 'offline' ? json({ error: 'Unavailable' }, 503) : json(nodes);
     if (url.pathname === '/system_stats')
       return json({ devices: [{ name: 'SIMULATED ComfyUI · test fixture' }] });
     if (url.pathname === '/queue' && req.method === 'GET')
@@ -123,7 +123,7 @@ export async function fakeComfy() {
     return json({ error: 'Unknown route' }, 404);
   });
   socket = new WebSocketServer({ server });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await new Promise<void>((resolve) => server.listen(0, host, resolve));
   return {
     port: (server.address() as any).port as number,
     png,
@@ -131,6 +131,10 @@ export async function fakeComfy() {
     pending,
     waiting,
     history,
+    get connections() { return socket.clients.size; },
+    progress: (id: string) => socket.clients.forEach(s => s.send(JSON.stringify({
+      type: 'progress', data: { prompt_id: id, node: '5', value: 4, max: 10 },
+    }))),
     get submissions() {
       return submissions;
     },

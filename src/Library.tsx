@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { emptyLibrary } from '../shared/library';
+import { MAX_IMAGE_REFERENCES } from '../shared/image-references';
 import type { Library as LibraryData, Point } from '../shared/types';
 import { assetUrl } from './Canvas';
 import { fail, useWorkspace } from './store';
@@ -214,8 +215,12 @@ export function Library({ center }: { center: () => Point }) {
         disabled={busy}
         onClick={() => {
           const ids = chosen.length ? chosen : referenceIds(useWorkspace.getState().selected);
-          if (!ids.length || ids.length > 5)
-            return fail(new Error('Select 1–5 library or board images for this character.'));
+          if (!ids.length || ids.length > MAX_IMAGE_REFERENCES)
+            return fail(
+              new Error(
+                `Select 1–${MAX_IMAGE_REFERENCES} library or board images for this character.`,
+              ),
+            );
           setCharacter({ id: crypto.randomUUID(), name: '', description: '', assetIds: ids });
         }}
       >
@@ -268,8 +273,11 @@ export function Library({ center }: { center: () => Point }) {
           </div>
           <button
             onClick={() => {
-              if (chosen.length > 0 && chosen.length <= 5)
-                setCharacter({ ...character, assetIds: chosen });
+              if (!chosen.length || chosen.length > MAX_IMAGE_REFERENCES)
+                return fail(
+                  new Error(`Select 1–${MAX_IMAGE_REFERENCES} library images for this character.`),
+                );
+              setCharacter({ ...character, assetIds: chosen });
             }}
           >
             Replace images with library selection

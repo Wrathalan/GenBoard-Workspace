@@ -201,7 +201,8 @@ p {
   margin: 0 12px;
   color: var(--color-muted);
 }
-.top-left { min-width: 0; }
+.top-left { min-width: 0; flex: 1; }
+.top-left .project-name { flex-shrink: 0; max-width: 200px; }
 .top-right, .top-left > button, .brand-mark { flex-shrink: 0; }
 .project-title {
   overflow: hidden;
@@ -225,7 +226,7 @@ p {
 .board-switcher-menu {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
   width: 260px;
   max-width: calc(100vw - 24px);
   padding: 6px;
@@ -255,7 +256,15 @@ p {
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
 }
 .board-switcher-divider { height: 1px; margin: 5px 2px; background: var(--color-border); }
-.board-navigation { display: flex; align-items: center; min-width: 0; position: relative; }
+.board-navigation { display: flex; align-items: center; min-width: 0; position: relative; flex: 1; gap: 3px; margin-right: 12px; }
+.board-navigation > button, .board-navigation > .board-switcher { flex-shrink: 0; }
+.board-tabs { display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
+.board-tab { flex: 0 0 auto; max-width: 190px; height: 34px; border-radius: 7px 7px 0 0; border-bottom: 2px solid transparent; padding: 7px 12px; color: var(--color-muted); font-size: 11px; }
+.board-tab span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.board-tab svg { flex-shrink: 0; }
+.board-tab[aria-selected='true'] { color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface)); border-bottom-color: var(--color-accent); }
+.board-tab[aria-disabled='true'] { opacity: 0.55; cursor: not-allowed; }
+.board-tab:focus-visible { outline-offset: -3px; }
 .board-option { display: flex; align-items: center; gap: 8px; padding: 9px 8px; border-radius: 6px; cursor: pointer; }
 .board-option[aria-selected='true'] { color: var(--color-accent); }
 .board-option[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
@@ -1325,6 +1334,7 @@ button:focus-visible {
 }
 .chat-attachments {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
 }

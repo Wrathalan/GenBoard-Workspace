@@ -1,3 +1,33 @@
+# Weave 0.3.10 release verification — 2026-10-04
+
+Production build, all 55 unit tests, all 31 Electron desktop scenarios, and browser integration passed. The packaged Weave 0.3.10 executable passed the smoke test for application identity, native SQLite/Sharp, canvas editing, saved references, themes, safe capture, and sticky-edge movement. Earlier feature checks below describe the new tab strip, LAN transport, and 16-image handoff coverage.
+
+Built the unsigned Windows x64 installer `Weave Setup 0.3.10.exe` (134,968,518 bytes). Windows product metadata reports 0.3.10. SHA-256: `0d7cae97bb1f0ce58dbe4420bed5649a9beda93f8a543aae2222b90b2cd939e7`. The release checksum names GitHub's asset `Weave.Setup.0.3.10.exe`.
+
+The packaged application was launched directly; installation into the user's account, authenticated live image generation, and inference on a separate physical GPU server were not tested. Regression-generated documentation screenshots were restored to their prior versions. Vite retains its existing bundle-size advisory.
+
+# Codex image attachment handoff — 2026-10-04
+
+References now use app-server `image` inputs with inline data URLs and `original` detail, matching the installed server's generated UserInput/ImageDetail protocol. The original PNG/JPEG/WebP bytes and selection order are preserved. Chat, character profiles, and backend validation share a 16-reference limit; duplicate asset IDs are merged before submission. The imagegen skill distinguishes current-turn attachments from filesystem paths and forbids silently dropping required references when the native tool has a lower limit.
+
+Production build and all 55 unit tests passed. Four library/Codex desktop scenarios passed, including a synthetic RPC provider behind the real image preparation and turn-start flow: all 16 payloads matched the original bytes in order, 17 combined references retained the editable draft, removing an extra reference enabled submission, and the backend rejected overflow independently. Unit coverage also checks PNG/JPEG/WebP content detection, corrupt/missing/oversized files, no stale attachments on later text-only turns, character limits, and generated-image source IDs. Browser integration passed with overflow and invalid-reference rejection. The 16-reference composer screenshot was visually inspected.
+
+The 16-image count comes from the official GPT Image edit API reference checked on 2026-10-04; it does not establish the signed-in Codex native tool's actual model or limit. No authenticated live generation was performed. No installer or release was produced. Vite retains its existing bundle-size advisory.
+
+# Tabbed boards — 2026-10-04
+
+Added scrollable header tabs with active-board highlighting, direct switching, a named-creation button, and double-click renaming. Search and previous-board navigation retain the shared navigation controller.
+
+TypeScript and the production build passed. All six targeted board-navigation and embedded-browser desktop scenarios passed, covering tab focus and activation, long-list overflow, naming and undo history, save failures, viewport restoration, synthetic Codex busy state, and browser overlays. The 900-pixel-wide tab layout screenshot was visually inspected. Vite retains its existing bundle-size advisory. No installer was built or release published for this patch.
+
+# LAN ComfyUI — 2026-09-27
+
+Added explicit ComfyUI host and port selection for desktop, browser mode, and workspace-agent connections. Loopback remains the default; IPv4, IPv6, and hostnames use HTTP with redirects disabled. Reconnection retains the previous client until the new server responds successfully, and unresolved submitted jobs prevent switching to another endpoint.
+
+TypeScript and the production build passed, along with all 54 unit tests. Four targeted desktop scenarios passed: LAN transport, existing ComfyUI batch/reference/failure/cancellation/recovery, partial ingestion and stale saves, and submitted-job restart recovery. The LAN case used a simulated ComfyUI server reached through this machine's non-loopback network-interface address; reference upload, image download, WebSocket progress, retained connections after a 503 response, endpoint persistence, restart without resubmission, and cancellation were verified. The final LAN scenario passed again after adding the explicit WebSocket progress assertion. The connection-panel screenshot was visually inspected.
+
+Browser bridge integration passed with an explicit hostname connection and invalid-host rejection alongside existing navigation, persistence, imports, and RPC checks. No inference on a separate physical GPU server was performed. Vite retains its existing bundle-size advisory. No installer was built or release published for this patch.
+
 # Weave 0.3.9 release verification — 2026-09-26
 
 All 53 unit tests and all 29 Electron desktop scenarios passed in the release run. TypeScript and the production build passed, and browser integration passed board navigation/validation, atomic creation, persistence, imports, library metadata, and RPC checks. The packaged Weave 0.3.9 executable passed the smoke test, including application identity, native SQLite/Sharp, persistence, references, themes, safe capture, and sticky-edge movement.

@@ -1,4 +1,5 @@
 import type { Library } from './types';
+import { MAX_IMAGE_REFERENCES } from './image-references';
 
 export const emptyLibrary = (): Library => ({ folders: [], assetFolders: {}, characters: [] });
 
@@ -47,12 +48,12 @@ export function validateLibrary(value: Library, assetIds: string[]): Library {
       c.description.length > 10000 ||
       !Array.isArray(c.assetIds) ||
       !c.assetIds.length ||
-      c.assetIds.length > 5 ||
+      c.assetIds.length > MAX_IMAGE_REFERENCES ||
       new Set(c.assetIds).size !== c.assetIds.length ||
       c.assetIds.some((id) => !assets.has(id))
     )
       throw new Error(
-        'A character needs 1–5 existing reference images and a description under 10,000 characters.',
+        `A character needs 1–${MAX_IMAGE_REFERENCES} existing reference images and a description under 10,000 characters.`,
       );
   return structuredClone(value);
 }

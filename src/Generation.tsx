@@ -29,6 +29,7 @@ export function Generation({
   const board = useWorkspace((s) => s.board)!;
   const flow = useReactFlow();
   const [port, setPort] = useState(8188);
+  const [host, setHost] = useState('127.0.0.1');
   const [caps, setCaps] = useState<Capabilities>();
   const [connecting, setConnecting] = useState(false);
   const [templateId, setTemplateId] = useState(project.templates[0]?.id || '');
@@ -92,12 +93,15 @@ export function Generation({
   const connect = async () => {
     setConnecting(true);
     try {
-      setCaps(await window.imagine.connect(port));
+      const connected = await window.imagine.connect(port, host);
+      setCaps(connected);
+      setCheckpoint('');
+      setCheckpointConfirmed(false);
     } catch (e) {
       setCaps(undefined);
       fail(
         new Error(
-          `Could not connect to 127.0.0.1:${port}. Start ComfyUI separately and check its port. ${(e as Error).message}`,
+          `Could not connect to ${host}:${port}. Check the host and port. For LAN access, ComfyUI must listen on its network interface and its firewall must allow the port. ${(e as Error).message}`,
         ),
       );
     } finally {
@@ -150,14 +154,30 @@ export function Generation({
           <span className={`status-dot ${caps ? 'online' : ''}`} />
           <span>{caps ? 'ComfyUI connected' : 'ComfyUI disconnected'}</span>
         </div>
+        <label>
+          ComfyUI host
+          <input
+            aria-label="ComfyUI host"
+            value={host}
+            placeholder="127.0.0.1 or 192.168.1.50"
+            autoCapitalize="none"
+            spellCheck={false}
+            disabled={connecting}
+            onChange={(e) => {
+              setHost(e.target.value);
+              setCaps(undefined);
+            }}
+          />
+        </label>
         <div className="row">
-          <span className="muted">127.0.0.1 :</span>
+          <span className="muted">Port</span>
           <input
             aria-label="ComfyUI port"
             type="number"
             min={1}
             max={65535}
             value={port}
+            disabled={connecting}
             onChange={(e) => {
               setPort(+e.target.value);
               setCaps(undefined);
@@ -168,7 +188,14 @@ export function Generation({
             {connecting ? 'Connecting…' : 'Connect'}
           </button>
         </div>
-        {caps && <p className="micro">{caps.device}</p>}
+        <p className="micro">
+          Use this computer’s loopback address or your ComfyUI computer’s LAN IP or hostname.
+        </p>
+        {caps && (
+          <p className="micro">
+            {caps.endpoint} · {caps.device}
+          </p>
+        )}
         <label>
           Workflow
           <select

@@ -1,11 +1,30 @@
 import WebSocket from 'ws';
 import { randomUUID } from 'node:crypto';
+import { isIP } from 'node:net';
 import type { Capabilities, Workflow } from '../shared/types';
 
 export function loopbackEndpoint(port: number): string {
+  return comfyEndpoint(port);
+}
+export function comfyEndpoint(port: number, host = '127.0.0.1'): string {
   if (!Number.isInteger(port) || port < 1 || port > 65535)
-    throw new Error('Enter a local port from 1 to 65535.');
-  return `http://127.0.0.1:${port}`;
+    throw new Error('Enter a port from 1 to 65535.');
+  if (typeof host !== 'string') throw new Error('Enter a ComfyUI hostname or IP address.');
+  let hostname = host.trim().toLowerCase();
+  if (hostname.startsWith('[') && hostname.endsWith(']')) {
+    hostname = hostname.slice(1, -1);
+    if (isIP(hostname) !== 6) throw new Error('Brackets are only valid around an IPv6 address.');
+  }
+  const ip = isIP(hostname);
+  const validName =
+    hostname.length <= 253 &&
+    hostname.split('.').every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+  if (!ip && (!validName || /^[\d.]+$/.test(hostname)))
+    throw new Error('Enter a hostname or IP address only, without a URL, path, or port.');
+  if (hostname === '0.0.0.0' || (ip === 6 && new URL(`http://[${hostname}]`).hostname === '[::]'))
+    throw new Error('Enter the server’s actual IP address, not its listen address.');
+  const address = ip === 6 ? new URL(`http://[${hostname}]`).hostname : hostname;
+  return `http://${address}:${port}`;
 }
 export class ComfyClient {
   endpoint: string;
@@ -14,8 +33,9 @@ export class ComfyClient {
   constructor(
     port: number,
     private event: (event: { type: string; data: any }) => void = () => {},
+    host = '127.0.0.1',
   ) {
-    this.endpoint = loopbackEndpoint(port);
+    this.endpoint = comfyEndpoint(port, host);
   }
   async request(route: string, init: RequestInit = {}) {
     const response = await fetch(this.endpoint + route, {

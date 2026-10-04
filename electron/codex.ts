@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, shell, dialog, type BrowserWindow } from 'electron';
-import { generatedImageBytes } from './codex-images';
+import { generatedImageBytes, prepareCodexImages } from './codex-images';
 import { CodexRpc } from './codex-rpc';
 import { parseToolArguments, workspaceTool, type CodexEvent } from '../shared/codex';
 const createRpc = (executable: string, args: string[], cwd: string, env: NodeJS.ProcessEnv) =>
@@ -199,6 +199,7 @@ export class CodexHarness {
       referenceAssetIds: options.referenceAssetIds || [],
     };
     try {
+      const images = await prepareCodexImages(options.images || []);
       const account = await this.status();
       if (!account.signedIn) throw new Error('Sign into Codex first.');
       if (!this.thread || this.board !== board) {
@@ -222,7 +223,18 @@ export class CodexHarness {
         input: [
           { type: 'text', text: prompt },
           ...(this.skillPath ? [{ type: 'skill', name: 'imagegen', path: this.skillPath }] : []),
-          ...(options.images || []).map((path) => ({ type: 'localImage', path })),
+          ...(images.length
+            ? [
+                {
+                  type: 'text',
+                  text: `This request has ${images.length} attached reference images, in the order shown below. Use these current-turn attachments for the requested edit or generation; their image data is included directly. Do not substitute earlier chat images or omit references.`,
+                },
+              ]
+            : []),
+          ...images.flatMap((image, index) => [
+            { type: 'text' as const, text: `Reference image ${index + 1}` },
+            image,
+          ]),
         ],
         environments: [],
       });

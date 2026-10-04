@@ -28,6 +28,25 @@ export function BoardSwitcher({
   const trigger = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const tabs = useRef<HTMLDivElement>(null);
+  const revealTab = (tab: HTMLElement) => {
+    const strip = tabs.current;
+    if (!strip) return;
+    const bounds = strip.getBoundingClientRect();
+    const item = tab.getBoundingClientRect();
+    if (item.left < bounds.left) strip.scrollLeft -= bounds.left - item.left;
+    else if (item.right > bounds.right) strip.scrollLeft += item.right - bounds.right;
+  };
+  useEffect(() => {
+    const reveal = () => {
+      const tab = tabs.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (tab) revealTab(tab);
+    };
+    reveal();
+    const resize = new ResizeObserver(reveal);
+    if (tabs.current) resize.observe(tabs.current);
+    return () => resize.disconnect();
+  }, [board.id, board.name, boards.length]);
   const results = boards.filter((item) =>
     (item.id === board.id ? board.name : item.name)
       .toLocaleLowerCase()
@@ -95,6 +114,67 @@ export function BoardSwitcher({
         <ArrowLeft size={14} aria-hidden="true" />
       </button>
       <div
+        ref={tabs}
+        className="board-tabs"
+        role="tablist"
+        aria-label="Boards"
+        onKeyDown={(event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const buttons = [...tabs.current!.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const next =
+            event.key === 'Home'
+              ? 0
+              : event.key === 'End'
+                ? buttons.length - 1
+                : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus({ preventScroll: true });
+          if (buttons[next]) revealTab(buttons[next]);
+        }}
+      >
+        {boards.map((item) => {
+          const current = item.id === board.id;
+          const label = (current ? board.name : item.name) || 'Untitled board';
+          return (
+            <button
+              key={item.id}
+              id={`board-tab-${item.id}`}
+              role="tab"
+              className="board-tab"
+              aria-selected={current}
+              aria-controls="board-canvas"
+              aria-disabled={busy || !!blocked}
+              tabIndex={current ? 0 : -1}
+              title={blocked || `${label}${current ? ' — Double-click to rename' : ''}`}
+              onClick={async () => {
+                if (busy || blocked) return;
+                if (await choose(item.id)) {
+                  setOpen(false);
+                  document.getElementById(`board-tab-${item.id}`)?.focus({ preventScroll: true });
+                }
+              }}
+              onDoubleClick={() => {
+                if (current && !busy) nameBoard('rename');
+              }}
+            >
+              <Frame size={13} aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <button
+        className="board-tab-add"
+        aria-label="Add board tab"
+        title={blocked || 'New board'}
+        disabled={busy || !!blocked}
+        onClick={() => nameBoard('create')}
+      >
+        <Plus size={15} aria-hidden="true" />
+      </button>
+      <div
         className="board-switcher"
         ref={root}
         onBlur={(event) => {
@@ -117,7 +197,6 @@ export function BoardSwitcher({
             }
           }}
         >
-          <span>{board.name || 'Untitled board'}</span>
           <ChevronDown size={13} aria-hidden="true" />
         </button>
         {open && (

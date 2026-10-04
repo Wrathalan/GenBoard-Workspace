@@ -43,7 +43,7 @@ export function createWorkspaceAPI(
     importWorkflow: () => invoke('workflow:import'),
     saveTemplate: (t) => invoke('workflow:save', t),
     verifyOffline: (templateId, jobId) => invoke('workflow:verify-offline', templateId, jobId),
-    connect: (port) => invoke('comfy:connect', port),
+    connect: (port, host) => invoke('comfy:connect', port, host),
     validateTemplate: (t) => invoke('workflow:validate', t),
     generate: (request) => invoke('job:generate', request),
     cancelJob: (id) => invoke('job:cancel', id),

@@ -9,6 +9,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 let app: ElectronApplication, page: Page, folder: string;
 const trigger = () => page.getByRole('button', { name: /^Switch board:/ });
+const activeTab = () => page.getByRole('tab', { selected: true });
 const previous = () => page.getByRole('button', { name: 'Previous board', exact: true });
 async function nameDialog(mode: 'create' | 'rename') {
   await trigger().click();
@@ -28,7 +29,7 @@ async function create(name: string) {
   await dialog.getByRole('textbox', { name: 'Board name' }).fill(name);
   await dialog.getByRole('button', { name: 'Create board', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(trigger()).toContainText(name.trim());
+  await expect(activeTab()).toContainText(name.trim());
 }
 test.beforeEach(async () => {
   folder = path.resolve('.test-data', `navigation-${Date.now()}`);
@@ -61,9 +62,9 @@ test('search, naming, focus, shortcuts, undo history, and narrow layouts', async
   let dialog = await nameDialog('rename');
   await dialog.getByRole('textbox').fill('  Reference studies  ');
   await dialog.getByRole('textbox').press('Enter');
-  await expect(trigger()).toContainText('Reference studies');
+  await expect(activeTab()).toContainText('Reference studies');
   await expect(dialog).toHaveCount(0);
-  await expect(trigger()).toContainText('Reference studies');
+  await expect(activeTab()).toContainText('Reference studies');
   await expect(trigger()).toBeFocused();
   await page.keyboard.press('Control+z');
   await expect(page.locator('.text-node')).toHaveCount(0);
@@ -84,6 +85,17 @@ test('search, naming, focus, shortcuts, undo history, and narrow layouts', async
   await expect(dialog).toHaveCount(0);
   expect((await page.evaluate(() => window.imagine.currentProject()))!.boards).toHaveLength(1);
   await create('Color studies');
+  await expect(page.getByRole('tablist', { name: 'Boards', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Reference studies', exact: true }).click();
+  await expect(activeTab()).toHaveText('Reference studies');
+  await expect(page.locator('.text-node')).toHaveCount(1);
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Color studies', exact: true })).toBeFocused();
+  await expect(activeTab()).toHaveText('Reference studies');
+  await page.keyboard.press('Enter');
+  await expect(activeTab()).toHaveText('Color studies');
+  await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', await activeTab().getAttribute('id') as string);
   await trigger().focus();
   await page.keyboard.press('Control+Shift+b');
   const search = page.getByRole('combobox', { name: 'Search boards' });
@@ -91,7 +103,7 @@ test('search, naming, focus, shortcuts, undo history, and narrow layouts', async
   await search.fill('REFerence');
   await expect(page.getByRole('option')).toHaveCount(1);
   await search.press('Enter');
-  await expect(trigger()).toContainText('Reference studies');
+  await expect(activeTab()).toContainText('Reference studies');
   await trigger().click();
   await expect(search).toHaveValue('');
   await search.fill('no matches');
@@ -105,16 +117,18 @@ test('search, naming, focus, shortcuts, undo history, and narrow layouts', async
   await trigger().click();
   await search.press('ArrowDown');
   await search.press('Enter');
-  await expect(trigger()).toContainText('Color studies');
+  await expect(activeTab()).toContainText('Color studies');
   await previous().click();
-  await expect(trigger()).toContainText('Reference studies');
+  await expect(activeTab()).toContainText('Reference studies');
   await previous().click();
-  await expect(trigger()).toContainText('Color studies');
-  dialog = await nameDialog('rename');
+  await expect(activeTab()).toContainText('Color studies');
+  await activeTab().dblclick();
+  dialog = page.getByRole('dialog', { name: 'Rename board', exact: true });
   await dialog.getByRole('textbox').fill('Long board '.repeat(9));
   await dialog.getByRole('textbox').press('Enter');
   await expect(dialog).toHaveCount(0);
   await page.setViewportSize({ width: 900, height: 620 });
+  await page.screenshot({ path: 'test-results/board-tabs.png' });
   await trigger().click();
   const box = await page.getByRole('dialog', { name: 'Switch board', exact: true }).boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(900);
@@ -125,7 +139,7 @@ test('search, naming, focus, shortcuts, undo history, and narrow layouts', async
   await page.mouse.click(650, 500);
   await expect(search).toHaveCount(0);
   await page.reload();
-  await expect(trigger()).toContainText('Long board');
+  await expect(activeTab()).toContainText('Long board');
   await expect(previous()).toBeDisabled();
 });
 
@@ -153,7 +167,7 @@ test('save failures retain names and edits; switching restores saved viewport an
   await dialog.getByRole('button', { name: 'Cancel' }).click();
   await previous().click();
   await expect(page.locator('.board-navigation-error')).toContainText('Synthetic disk failure');
-  await expect(trigger()).toContainText('Renamed second');
+  await expect(activeTab()).toContainText('Renamed second');
   await expect(previous()).toHaveAttribute('title', 'Return to Untitled board');
   await expect(page.locator('.text-node')).toHaveCount(1);
   await app.evaluate(() => {
@@ -161,9 +175,9 @@ test('save failures retain names and edits; switching restores saved viewport an
     store.saveBoard = store.originalSave;
   });
   await previous().click();
-  await expect(trigger()).toContainText('Untitled board');
+  await expect(activeTab()).toContainText('Untitled board');
   await previous().click();
-  await expect(trigger()).toContainText('Renamed second');
+  await expect(activeTab()).toContainText('Renamed second');
   await expect(page.locator('.text-node')).toHaveCount(1);
   await expect(page.locator('.zoom-value')).toHaveText(`${Math.round(saved.viewport.zoom * 100)}%`);
   const after = await page.evaluate(() => window.imagine.currentProject());
@@ -214,7 +228,7 @@ test('Codex busy state blocks navigation before writes; transaction failure leav
   });
   await expect(page.getByRole('button', { name: 'New board', exact: true })).toBeEnabled();
   await page.getByRole('option', { name: 'Untitled board', exact: true }).click();
-  await expect(trigger()).toContainText('Untitled board');
+  await expect(activeTab()).toContainText('Untitled board');
   await app.evaluate(() => {
     const store = (globalThis as any).imagineTest.getStore();
     store.originalSetting = store.setting;
@@ -235,11 +249,12 @@ test('Codex busy state blocks navigation before writes; transaction failure leav
   });
   await dialog.getByRole('button', { name: 'Create board', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(trigger()).toContainText('Try again');
+  await expect(activeTab()).toContainText('Try again');
 });
 
 test('rapid submissions create once and long board lists scroll without moving the header', async () => {
-  const dialog = await nameDialog('create');
+  await page.getByRole('button', { name: 'Add board tab', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New board', exact: true });
   await dialog.getByRole('textbox').fill('Only once');
   await dialog.locator('form').evaluate((form: HTMLFormElement) => {
     form.requestSubmit();
@@ -266,5 +281,11 @@ test('rapid submissions create once and long board lists scroll without moving t
     0,
   );
   await search.press('Enter');
-  await expect(trigger()).toContainText('Study 24');
+  await expect(activeTab()).toContainText('Study 24');
+  await expect(activeTab()).toBeInViewport();
+  await activeTab().press('Home');
+  await expect(page.getByRole('tab', { name: 'Untitled board', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(activeTab()).toHaveText('Untitled board');
+  await expect(activeTab()).toBeInViewport();
 });

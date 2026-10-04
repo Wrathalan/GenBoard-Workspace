@@ -21,6 +21,7 @@ import { ProjectStore, contained } from './project';
 import { JobService } from './jobs';
 import { parseWorkflow, validateWorkflow } from '../shared/workflow';
 import type { CodexRunOptions } from '../shared/codex';
+import { validateReferenceIds } from '../shared/image-references';
 import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
 import { CodexHarness } from './codex';
 import { assetDragItem, copyAssetImage, exportAsset, revealAsset } from './asset-actions';
@@ -94,8 +95,8 @@ async function executeCodexTool(boardId: string, action: string, args: Record<st
     return { assetId: asset.id };
   }
   if (action === 'connect') {
-    const c = await jobs!.connect(Number(args.port || 8188));
-    return { checkpoints: c.checkpoints, device: c.device };
+    const c = await jobs!.connect(Number(args.port ?? 8188), args.host as string | undefined);
+    return { endpoint: c.endpoint, checkpoints: c.checkpoints, device: c.device };
   }
   if (action === 'cancel_job' || action === 'retry_job') {
     const j = project.jobs.find((j) => j.id === args.id && j.boardId === boardId);
@@ -274,9 +275,7 @@ app
     handle('codex:choose', () => codex.choose());
     handle('codex:run', (boardId: string, prompt: string, options: CodexRunOptions = {}) => {
       if (requireStore().snapshot().activeBoardId !== boardId) throw new Error('Board changed.');
-      const ids = options.referenceAssetIds || [];
-      if (!Array.isArray(ids) || ids.length > 5 || ids.some((id) => typeof id !== 'string'))
-        throw new Error('Attach up to five images.');
+      const ids = validateReferenceIds(options.referenceAssetIds ?? []);
       const project = requireStore().snapshot();
       const images = ids.map((id) => {
         const a = project.assets.find((a) => a.id === id);
@@ -417,9 +416,9 @@ app
     handle('workflow:verify-offline', (templateId: string, jobId: string) =>
       requireStore().verifyOffline(templateId, jobId),
     );
-    handle('comfy:connect', (port: number) => {
+    handle('comfy:connect', (port: number, host?: string) => {
       requireStore();
-      return jobs!.connect(port);
+      return jobs!.connect(port, host);
     });
     handle('workflow:validate', (t: Template) => {
       if (!jobs?.caps) throw new Error('Connect to ComfyUI first.');

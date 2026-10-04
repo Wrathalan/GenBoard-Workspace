@@ -166,7 +166,7 @@ export interface WorkspaceAPI {
   importWorkflow(): Promise<Template | null>;
   saveTemplate(template: Template): Promise<Template>;
   verifyOffline(templateId: string, jobId: string): Promise<Template>;
-  connect(port: number): Promise<Capabilities>;
+  connect(port: number, host?: string): Promise<Capabilities>;
   validateTemplate(template: Template): Promise<string[]>;
   generate(request: GenerateRequest): Promise<Job[]>;
   cancelJob(id: string): Promise<void>;

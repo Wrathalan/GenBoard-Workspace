@@ -4,6 +4,7 @@ import { useReactFlow } from '@xyflow/react';
 import { flush, useWorkspace } from './store';
 import { assetUrl } from './Canvas';
 import { ATTACH_REFERENCES, REFERENCE_MIME, readReferences, referenceIds } from './references';
+import { MAX_IMAGE_REFERENCES, validateReferenceIds } from '../shared/image-references';
 
 type Task = {
   id: string;
@@ -42,11 +43,12 @@ export function CodexPanel({ close }: { close: () => void }) {
     starting = useRef(false),
     completed = useRef(false);
   const selectedCharacter = project?.library?.characters.find((c) => c.id === characterId);
+  const referenceCount = new Set([...attachments, ...(selectedCharacter?.assetIds || [])]).size;
   function attach(ids: string[]) {
     setAttachments((old) => {
       const next = [...new Set([...old, ...ids])];
-      if (next.length > 5) {
-        setStatus('Attach up to five images. Remove an attachment first.');
+      if (next.length > MAX_IMAGE_REFERENCES) {
+        setStatus(`Attach up to ${MAX_IMAGE_REFERENCES} images. Remove an attachment first.`);
         return old;
       }
       return next;
@@ -188,16 +190,18 @@ export function CodexPanel({ close }: { close: () => void }) {
   }, [queue, busy, paused, signedIn, board?.id, navigationPending]);
   function send() {
     if (!board || !prompt.trim() || !signedIn) return;
-    const refs = [...new Set([...attachments, ...(selectedCharacter?.assetIds || [])])];
+    let refs: string[];
+    try {
+      refs = validateReferenceIds([...attachments, ...(selectedCharacter?.assetIds || [])]);
+    } catch (error) {
+      setStatus(String(error));
+      return;
+    }
     const text =
       prompt +
       (selectedCharacter
         ? `\n\nCharacter reference — ${selectedCharacter.name}:\n${selectedCharacter.description}`
         : '');
-    if (refs.length > 5) {
-      setStatus('Attach up to five images including character references.');
-      return;
-    }
     if (text.length > 30000 || queue.length >= 50) {
       setStatus('Use fewer than 30,000 characters and at most 50 queued tasks.');
       return;
@@ -241,7 +245,7 @@ export function CodexPanel({ close }: { close: () => void }) {
         try {
           const raw = e.dataTransfer.getData(REFERENCE_MIME);
           const character = raw ? JSON.parse(raw).characterId : undefined;
-          const assets = await readReferences(e.dataTransfer);
+          const assets = await readReferences(e.dataTransfer, MAX_IMAGE_REFERENCES);
           if (useWorkspace.getState().project?.folder === folder) {
             attach(assets.map((a) => a.id));
             if (project?.library?.characters.some((c) => c.id === character))
@@ -424,13 +428,14 @@ export function CodexPanel({ close }: { close: () => void }) {
         </div>
         {attachments.length > 0 && (
           <div className="chat-attachments">
-            {attachments.map((id) => (
+            {attachments.map((id, index) => (
               <button
                 key={id}
                 title="Remove attachment"
+                aria-label={`Remove reference ${index + 1}`}
                 onClick={() => setAttachments((v) => v.filter((a) => a !== id))}
               >
-                <img src={assetUrl(id)} alt="Attached reference" />
+                <img src={assetUrl(id)} alt={`Reference ${index + 1}`} />
                 <X size={12} />
               </button>
             ))}
@@ -464,6 +469,9 @@ export function CodexPanel({ close }: { close: () => void }) {
             )}
           </label>
         )}
+        <small aria-label="Reference image count">
+          {referenceCount}/{MAX_IMAGE_REFERENCES} reference images
+        </small>
         <textarea
           ref={composer}
           aria-label="Codex request"

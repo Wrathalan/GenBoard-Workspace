@@ -20,7 +20,19 @@ it('accepts legacy empty libraries and validates persistent character references
     validateLibrary({ ...library, characters: [{ ...library.characters[0], assetIds: [] }] }, [
       'a',
     ]),
-  ).toThrow('1–5');
+  ).toThrow('1–16');
+  const refs = Array.from({ length: 16 }, (_, i) => `ref-${i}`);
+  const full = {
+    ...emptyLibrary(),
+    characters: [{ id: 'full', name: 'Full', description: '', assetIds: refs }],
+  };
+  expect(validateLibrary(full, refs)).toEqual(full);
+  expect(() =>
+    validateLibrary(
+      { ...full, characters: [{ ...full.characters[0], assetIds: [...refs, 'extra'] }] },
+      [...refs, 'extra'],
+    ),
+  ).toThrow('1–16');
 });
 const item = (
   id: string,

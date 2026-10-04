@@ -421,22 +421,22 @@ export function App() {
           <div className="project-name">
             <span className="project-title">{project?.name || 'Weave'}</span>
             <span className="slash">/</span>
-            {project && board ? (
-              <BoardSwitcher
-                key={project.folder}
-                boards={project.boards}
-                board={board}
-                busy={navigation.pending}
-                blocked={navigation.blocked}
-                error={namingBoard ? '' : navigation.error}
-                previous={navigation.previous}
-                choose={navigation.choose}
-                nameBoard={nameBoard}
-              />
-            ) : (
-              <span>Workspace</span>
-            )}
           </div>
+          {project && board ? (
+            <BoardSwitcher
+              key={project.folder}
+              boards={project.boards}
+              board={board}
+              busy={navigation.pending}
+              blocked={navigation.blocked}
+              error={namingBoard ? '' : navigation.error}
+              previous={navigation.previous}
+              choose={navigation.choose}
+              nameBoard={nameBoard}
+            />
+          ) : (
+            <span>Workspace</span>
+          )}
         </div>
         <div className="top-right">
           {window.imagine.startAssetDrag && (

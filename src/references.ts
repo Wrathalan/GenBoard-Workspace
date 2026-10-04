@@ -29,7 +29,7 @@ export function referenceIds(ids: string[]): string[] {
     ),
   ];
 }
-export async function readReferences(transfer: DataTransfer): Promise<Asset[]> {
+export async function readReferences(transfer: DataTransfer, maxImages = 500): Promise<Asset[]> {
   const project = useWorkspace.getState().project;
   if (!project) return [];
   const raw = transfer.getData(REFERENCE_MIME);
@@ -37,6 +37,7 @@ export async function readReferences(transfer: DataTransfer): Promise<Asset[]> {
     const data = JSON.parse(raw);
     if (data.folder !== project.folder || !Array.isArray(data.ids))
       throw new Error('References must belong to this project.');
+    if (new Set(data.ids).size > maxImages) throw new Error(`Attach up to ${maxImages} images.`);
     return data.ids.map((id: string) => {
       const a = project.assets.find((a) => a.id === id);
       if (!a) throw new Error('Unknown reference image.');
@@ -45,6 +46,7 @@ export async function readReferences(transfer: DataTransfer): Promise<Asset[]> {
   }
   const files = [...transfer.files];
   if (!files.length) return [];
+  if (files.length > maxImages) throw new Error(`Attach up to ${maxImages} images.`);
   if (
     files.length > 500 ||
     files.some((f) => !/\.(png|jpe?g|webp)$/i.test(f.name) || f.size > 100 * 1024 * 1024)

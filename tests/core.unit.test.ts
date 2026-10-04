@@ -7,7 +7,7 @@ import {
   parseWorkflow,
   validateWorkflow,
 } from '../shared/workflow';
-import { loopbackEndpoint } from '../electron/comfy';
+import { comfyEndpoint, loopbackEndpoint } from '../electron/comfy';
 import type { Capabilities, CanvasItem, GenerateRequest } from '../shared/types';
 describe('canvas math and history', () => {
   it('preserves cursor position across translated and scaled viewports', () =>
@@ -83,5 +83,14 @@ describe('workflow safety and compilation', () => {
     expect(loopbackEndpoint(8188)).toBe('http://127.0.0.1:8188');
     expect(() => loopbackEndpoint(65536)).toThrow();
     expect(() => loopbackEndpoint(NaN)).toThrow();
+  });
+  it('accepts explicit LAN hosts without allowing URL components in the hostname', () => {
+    expect(comfyEndpoint(8188, ' 192.168.1.50 ')).toBe('http://192.168.1.50:8188');
+    expect(comfyEndpoint(8188, 'GPU-PC.local')).toBe('http://gpu-pc.local:8188');
+    expect(comfyEndpoint(8188, '::1')).toBe('http://[::1]:8188');
+    expect(comfyEndpoint(8188, '[fd00::20]')).toBe('http://[fd00::20]:8188');
+    for (const host of ['', 'http://gpu-pc', 'gpu-pc:8188', 'user@gpu-pc', 'gpu-pc/path',
+      'gpu-pc?x', 'gpu-pc#x', '999.1.2.3', '2130706433', '0.0.0.0', '::', 'bad host', '-host', '[localhost]'])
+      expect(() => comfyEndpoint(8188, host), host).toThrow();
   });
 });
