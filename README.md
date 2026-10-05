@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave Setup 0.3.10.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave Setup 0.4.0.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 For development, install Node.js 24 LTS and run:
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.10 — 2026-10-04
+## 0.4.0 — 2026-10-04
 
 ### Codex image attachments
 

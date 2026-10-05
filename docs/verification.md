@@ -1,8 +1,8 @@
-# Weave 0.3.10 release verification — 2026-10-04
+# Weave 0.4.0 release verification — 2026-10-04
 
-Production build, all 55 unit tests, all 31 Electron desktop scenarios, and browser integration passed. The packaged Weave 0.3.10 executable passed the smoke test for application identity, native SQLite/Sharp, canvas editing, saved references, themes, safe capture, and sticky-edge movement. Earlier feature checks below describe the new tab strip, LAN transport, and 16-image handoff coverage.
+The release feature set passed all 55 unit tests, all 31 Electron desktop scenarios, and browser integration. The version correction to 0.4.0 changes release metadata and documentation only; those application-code results remain applicable. The 0.4.0 production build and packaged executable smoke test verify the corrected application identity, native SQLite/Sharp, canvas editing, saved references, themes, safe capture, and sticky-edge movement. Earlier feature checks below describe the new tab strip, LAN transport, and 16-image handoff coverage.
 
-Built the unsigned Windows x64 installer `Weave Setup 0.3.10.exe` (134,968,518 bytes). Windows product metadata reports 0.3.10. SHA-256: `0d7cae97bb1f0ce58dbe4420bed5649a9beda93f8a543aae2222b90b2cd939e7`. The release checksum names GitHub's asset `Weave.Setup.0.3.10.exe`.
+Built the unsigned Windows x64 installer `Weave Setup 0.4.0.exe` (134,968,631 bytes). Windows product metadata reports 0.4.0. SHA-256: `03cc23a828bf3892de9f17b73d73f6d96356d94cdabbd86b9421c809e7c400aa`. The release checksum names GitHub's asset `Weave.Setup.0.4.0.exe`.
 
 The packaged application was launched directly; installation into the user's account, authenticated live image generation, and inference on a separate physical GPU server were not tested. Regression-generated documentation screenshots were restored to their prior versions. Vite retains its existing bundle-size advisory.
 
