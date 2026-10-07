@@ -2,6 +2,7 @@ import { motionRoots, motionLocks, motionComponents, rigidPositions } from '../s
 import { create } from 'zustand';
 import { sensitiveIds } from '../shared/spoilers';
 import { boardName } from '../shared/board-navigation';
+import { folderContents, toggleFolder } from '../shared/board-folders';
 import type { Asset, Board, CanvasItem, Project, Viewport, WorkspaceAPI } from '../shared/types';
 import { absolutePosition, duplicateItems, History } from '../shared/board';
 declare global {
@@ -25,6 +26,7 @@ type State = {
   canRedo: boolean;
   editRequest: { id: string; at: number } | null;
   codexBusy: boolean;
+  codexQueued: number;
   navigationPending: boolean;
   renameBoard: (name: string) => void;
   load: (p: Project) => void;
@@ -39,6 +41,8 @@ type State = {
   remove: () => void;
   duplicate: () => void;
   group: () => void;
+  folder: (position?: { x: number; y: number }) => void;
+  toggleFolder: (id: string) => void;
   ungroup: () => void;
   align: () => void;
   lock: () => void;
@@ -53,6 +57,7 @@ export const useWorkspace = create<State>((set, get) => ({
   canRedo: false,
   editRequest: null,
   codexBusy: false,
+  codexQueued: 0,
   navigationPending: false,
   renameBoard: (value) => {
     const { board, project } = get();
@@ -220,6 +225,38 @@ export const useWorkspace = create<State>((set, get) => ({
       ),
     ]);
     set({ selected: [group.id] });
+  },
+  folder: (position) => {
+    const s = get();
+    if (!s.board) return;
+    if (s.board.items.length >= 10000) {
+      fail('Creating a folder would exceed the board limit of 10,000 items.');
+      return;
+    }
+    if (s.selected.length) {
+      // Grouping supplies the existing hierarchy, bounds, and history checkpoint.
+      s.group();
+      const current = get();
+      const group = current.board?.items.find((i) => current.selected.includes(i.id));
+      if (!group || group.type !== 'group' || s.board === current.board) return;
+      current.change(toggleFolder(current.board!.items.map((i) => i.id === group.id
+        ? { ...i, data: { ...i.data, folder: true, label: 'Folder' } } : i), group.id), false);
+      return;
+    }
+    const id = crypto.randomUUID();
+    const folder: CanvasItem = { id, type: 'group', position: position || { x: 0, y: 0 },
+      width: 480, height: 320, data: { folder: true, label: 'Folder' } };
+    s.change(toggleFolder([...s.board.items, folder], id));
+    set({ selected: [id] });
+  },
+  toggleFolder: (id) => {
+    const s = get();
+    if (!s.board) return;
+    const items = toggleFolder(s.board.items, id);
+    if (items.every((i, n) => i === s.board!.items[n])) return;
+    s.change(items);
+    const { hidden } = folderContents(items);
+    set({ selected: s.selected.filter((selected) => !hidden.has(selected)) });
   },
   ungroup: () => {
     const s = get();

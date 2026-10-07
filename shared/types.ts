@@ -4,6 +4,9 @@ export type ItemData = {
   assetId?: string;
   text?: string;
   label?: string;
+  folder?: boolean;
+  collapsed?: boolean;
+  expandedSize?: { width: number; height: number };
   locked?: boolean;
   edgeLinks?: string[];
   sensitive?: boolean;
@@ -124,6 +127,11 @@ export type RecentProject = {
   missing: boolean;
 };
 export interface WorkspaceAPI {
+  appUpdateState(): Promise<import('./app-update').AppUpdateState>;
+  checkAppUpdate(): Promise<import('./app-update').AppUpdateState>;
+  downloadAppUpdate(): Promise<import('./app-update').AppUpdateState>;
+  installAppUpdate(pendingCodexTasks: number): Promise<import('./app-update').AppUpdateState>;
+  onAppUpdate(callback: (state: import('./app-update').AppUpdateState) => void): () => void;
   saveLibrary(library: Library): Promise<void>;
   recentProjects(): Promise<RecentProject[]>;
   openRecentProject(id: string): Promise<Project>;

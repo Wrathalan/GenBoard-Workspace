@@ -50,6 +50,7 @@ export function snapPositions(
     y: grid ? Math.round(top / GRID_SIZE) * GRID_SIZE - top : 0,
   };
   const guides: SnapGuide[] = [];
+  const joins: { axis: 'x' | 'y'; a: string; b: string }[] = [];
   if (alignment) {
     const stationary = items.filter((i) => !affected(i) && i.type !== 'group' && i.type !== 'job');
     for (const axis of ['x', 'y'] as const) {
@@ -80,6 +81,7 @@ export function snapPositions(
         }
       }
       if (sticky) {
+        joins.push({ axis, a: sticky.a, b: sticky.b });
         delta[axis] = sticky.delta;
         guides.push({ axis, value: sticky.value });
         continue;
@@ -91,8 +93,10 @@ export function snapPositions(
       for (const item of stationary) {
         const p = absolutePosition(item, items)[axis];
         const size = axis === 'x' ? item.width : item.height;
-        for (const target of [p, p + size / 2, p + size])
-          for (const anchor of anchors) {
+        for (const [targetIndex, target] of [p, p + size / 2, p + size].entries())
+          for (const [anchorIndex, anchor] of anchors.entries()) {
+            // A center guide must not pull an edge onto another card's center.
+            if ((targetIndex === 1) !== (anchorIndex === 1)) continue;
             const distance = Math.abs(target - anchor);
             if (distance < best) {
               best = distance;
@@ -102,6 +106,35 @@ export function snapPositions(
           }
       }
       if (guide !== undefined) guides.push({ axis, value: guide });
+    }
+    // Once two cards touch, prefer matching their endpoints over unrelated guides.
+    if (joins.length === 1) {
+      const join = joins[0],
+        axis = join.axis === 'x' ? 'y' : 'x';
+      const a = proposed.find((i) => i.id === join.a)!,
+        b = items.find((i) => i.id === join.b)!;
+      const p = absolutePosition(a, proposed),
+        q = absolutePosition(b, items);
+      const size = axis === 'x' ? 'width' : 'height';
+      let correction: number | undefined,
+        value = 0;
+      for (const fraction of [0, 1, 0.5]) {
+        const target = q[axis] + fraction * b[size];
+        const offset = target - (p[axis] + fraction * a[size]);
+        if (
+          Math.abs(offset) <= 8 / zoom &&
+          (correction === undefined || Math.abs(offset) < Math.abs(correction))
+        ) {
+          correction = offset;
+          value = target;
+        }
+      }
+      if (correction !== undefined) {
+        delta[axis] = correction;
+        const index = guides.findIndex((g) => g.axis === axis);
+        if (index !== -1) guides.splice(index, 1);
+        guides.push({ axis, value });
+      }
     }
   }
   const result = new Map(positions);

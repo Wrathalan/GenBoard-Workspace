@@ -173,6 +173,53 @@ p {
   align-items: center;
   gap: 8px;
 }
+.update-notice { position: relative; }
+.update-notice .update-notice-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+.update-notice-message {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  width: 270px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.update-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.update-restart-dialog {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 20px;
+}
+.update-restart-dialog::backdrop { background: #0007; }
+@media (max-width: 950px) {
+  .update-notice-button > span { display: none; }
+}
 .brand-mark {
   background: var(--color-surface);
   display: grid;
@@ -337,7 +384,8 @@ p {
 .image-node img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  /* The node preserves the original ratio; thumbnails may round their pixel dimensions. */
+  object-fit: fill;
   display: block;
   pointer-events: none;
 }
@@ -1810,3 +1858,41 @@ button.active,
 .capturing .sticky-edge-controls {
   display: none;
 }
+.folder-node {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--item-border, var(--color-group));
+  border-radius: 8px;
+  background: var(--item-background, var(--color-surface));
+  color: var(--item-text, var(--color-group));
+  padding: 12px;
+}
+.folder-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: inherit;
+  text-align: left;
+}
+.folder-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-node > .folder-toggle { margin: 6px; }
+.folder-node small, .group-node > small { display: block; padding: 4px 12px; color: inherit; }
+.react-flow__node.selected .folder-node {
+  outline: 1.5px solid var(--item-selection, var(--color-selection));
+  outline-offset: 3px;
+}
+.send-to-dialog { width: min(440px, 90vw); }
+.send-to-destinations {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 16px 0;
+}
+.send-to-destinations button { justify-content: flex-start; text-align: left; }

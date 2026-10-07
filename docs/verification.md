@@ -1,3 +1,39 @@
+# Weave 0.4.1 release verification — 2026-10-07
+
+Version metadata, changelog, usage notes, and `docs/releases/0.4.1.md` are aligned for the patch release. The source includes the GitHub updater, precise alignment/resizing, cross-board clipboard, queue recovery, on-board folders, and Send to menus.
+
+All 75 unit tests and browser integration passed. All 39 desktop scenarios passed across the full run and a focused rerun: the full run passed 38 scenarios and exposed an ambiguous library test selector after the new canvas folder button was added; scoping it to the Project library region fixed the remaining scenario. An earlier run was interrupted after packaging regenerated files during a renderer reload; final desktop checks ran against a stable build. The optional installed-Codex check is skipped on machines without the separately installed executable, including clean CI runners.
+
+Built the unsigned Windows x64 installer `Weave.Setup.0.4.1.exe` (135,279,682 bytes). Windows product/file metadata reports 0.4.1. SHA-256: `fe65c821ae8f6c11f7ac27ef38bea5fba6f7bd4a7e2875b4c7bb918764a4fb0d`. Its generated `latest.yml` SHA-512 and file size match, and the corresponding blockmap is present. Packaged application smoke checks passed for native SQLite/Sharp, persistence, canvas actions, theme behavior, and clean shutdown. A separate packaged updater check verified the bundled dependency, GitHub feed configuration, disabled automatic installation on quit, and native update-quit event. The archive audit found no unexpected private/development files or credential patterns in bundled application sources. Regression-generated documentation screenshots were restored.
+
+The GitHub release is prepared as a draft; publishing is separate. Existing 0.4.0 users require a manual upgrade to receive the updater. A real installed-version upgrade, authenticated live image generation, and inference on a separate physical GPU server were not exercised. Vite retains its existing bundle-size advisory.
+
+# GitHub top-bar updater — 2026-10-07
+
+Added an Electron main-process updater using electron-updater 6.8.9 and the existing public GitHub repository. Installed Windows builds check after 15 seconds and every six hours; an available update appears as a compact header button, with download progress and an explicit restart action. Automatic download, installation on ordinary quit, prereleases, and downgrades are disabled. Restart saves board/style edits and blocks on pending Codex tasks, active Codex turns, and pending/running/unreconciled ComfyUI work. Browser and development transports cannot install updates. The Windows release workflow builds complete draft releases with installer, blockmap, manifest, and checksum assets.
+
+Production build, all 75 unit tests, seven targeted Electron regressions, and browser integration passed. Updater tests cover duplicate actions, offline checks, manual installation, queue/generation restrictions, save failures, and initial state retrieval. A real electron-updater transport against a local HTTP fixture rejected corrupted bytes by checksum and successfully retried; inert fixture bytes were never executed. Normal and 900-pixel header screenshots were visually inspected. Existing board navigation and queue recovery scenarios also passed.
+
+An unpublished NSIS test build in `.test-data/updater-package` produced `latest.yml`, `Weave.Setup.0.4.0.exe`, and its blockmap; the manifest SHA-512/size matched the installer. The packaged executable launched successfully with the bundled updater dependency and correct GitHub configuration. Its normal-quit auto-install setting is disabled, and the native updater quit event bypasses the ordinary close handshake. No real installation/upgrade or live GitHub update was performed, no release was published, and signing remains unchanged (unsigned). The test build retains the working tree's 0.4.0 version; the first public updater release must use a new version and needs a manual install by existing 0.4.0 users.
+
+# Queue recovery replies — 2026-10-04
+
+Distinguish automatic failure pauses from explicit Pause/Stop. An idle follow-up after a failure runs before pending tasks; a successful completion releases the failure pause. Errors during the follow-up, including an image failure inside an otherwise completed turn or a rejected submission, retain the pause. Existing board and navigation guards remain in effect, and failed tasks are not replayed.
+
+Production build, all 64 unit tests, and two Electron queue regressions passed. Synthetic provider checks cover recovery reply priority, streaming versus completion, repeated generation failures, submission rejection, automatic resumption in queue order, preserved references, and explicit Pause/Stop. Live generation was not exercised. No installer or release was updated.
+
+# Cross-board canvas clipboard — 2026-10-04
+
+Added native copy/paste event handling for selected canvas items. A session token in the clipboard identifies an in-memory snapshot scoped to the project; arbitrary clipboard data cannot inject canvas structure. Pasting creates fresh IDs, preserves relative group coordinates and internal edge links, reuses image assets, retains inherited sensitive marking, and adds a single undoable change. Text inputs, Codex chat, dialogs, menus, and browser controls retain their own clipboard behavior. External image paste continues through the existing image import path.
+
+Production build and all 64 unit tests passed. Seven targeted Electron scenarios passed, including real Ctrl+C/Ctrl+V across a board switch, source-board preservation, group and edge-link remapping, repeated pastes, undo/redo, reload persistence, native text clipboard behavior, existing image paste, and all board-navigation checks. Unit coverage also verifies copying individual children out of groups, immutable snapshots, inherited sensitive marking, and rejection of generation jobs. The earlier alignment patch remains included. No installer or GitHub release was updated for these source fixes.
+
+# Precise alignment and resizing — 2026-10-04
+
+Dragging now favors the joined neighbor's matching endpoints and avoids edge-to-center attraction. Resize updates apply position and dimensions together, snapping the moving edge while retaining the opposite anchor and saved image ratio. Handle direction is captured explicitly because the underlying resizer rounds DOM measurements; those rounded dimensions no longer shift saved fractional edges. Image display fills the original-ratio bounds so thumbnail pixel rounding cannot introduce a sliver of empty space.
+
+Production build and all 61 unit tests passed. Five targeted Electron desktop scenarios passed: drag guides and undo, nested group motion, precise image resize, edge-lock movement and unlock, and Codex movement of linked items. The new mouse test verifies both corner resizing directions at 65% zoom, exact saved edges, less than 0.1 screen pixel between rendered adjoining bounds, aspect ratio, undo, reload persistence, and dragging after a resize handle is clicked without movement. The final aligned-image screenshot was visually inspected. Existing edge-linked and grouped-member resize restrictions remain in place. This is a source patch; no updated installer or release was published.
+
 # Weave 0.4.0 release verification — 2026-10-04
 
 The release feature set passed all 55 unit tests, all 31 Electron desktop scenarios, and browser integration. The version correction to 0.4.0 changes release metadata and documentation only; those application-code results remain applicable. The 0.4.0 production build and packaged executable smoke test verify the corrected application identity, native SQLite/Sharp, canvas editing, saved references, themes, safe capture, and sticky-edge movement. Earlier feature checks below describe the new tab strip, LAN transport, and 16-image handoff coverage.

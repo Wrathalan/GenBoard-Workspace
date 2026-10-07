@@ -10,6 +10,11 @@ const card = (id: string, x: number, y: number, parentId?: string): CanvasItem =
   data: {},
   parentId,
 });
+it('aligns the joined neighbor endpoints instead of a closer unrelated center or grid', () => {
+  const items = [card('a', 0, 0), card('b', 201.25, 107.5), card('distractor', 700, 61)];
+  const result = snapPositions(items, new Map([['a', { x: 100, y: 101 }]]), 1, true, true);
+  expect(result.positions.get('a')).toEqual({ x: 101.25, y: 107.5 });
+});
 it('snaps negative world coordinates to the grid', () => {
   const result = snapPositions(
     [card('a', 0, 0)],

@@ -9,6 +9,7 @@ import {
   protocol,
   session,
   Menu,
+  autoUpdater as nativeAutoUpdater,
 } from 'electron';
 import fs from 'node:fs';
 import { boardName, BOARD_SWITCH_BLOCKED } from '../shared/board-navigation';
@@ -26,6 +27,8 @@ import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
 import { CodexHarness } from './codex';
 import { assetDragItem, copyAssetImage, exportAsset, revealAsset } from './asset-actions';
 import { EmbeddedBrowser } from './embedded-browser';
+import { autoUpdater } from 'electron-updater';
+import { AppUpdateService } from './app-update';
 
 // Keep the existing profile so the rebrand preserves recent projects, preferences,
 // and the Codex sign-in. The installer appId also remains stable for upgrades.
@@ -51,6 +54,7 @@ function send(channel: string, ...args: any[]) {
 let store: ProjectStore | undefined;
 let jobs: JobService | undefined;
 let closing = false;
+let updater: AppUpdateService;
 const recentProjects = () =>
   new RecentProjects(
     path.join(
@@ -175,6 +179,8 @@ function handle(name: string, fn: (...args: any[]) => any) {
   ipcMain.handle(name, (event, ...args) => {
     if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame)
       throw new Error('Invalid IPC sender.');
+    if (updater?.state().phase === 'installing' && !name.startsWith('app-update:'))
+      throw new Error('Weave is restarting to install an update.');
     return fn(...args);
   });
 }
@@ -268,6 +274,23 @@ app
     codex = new CodexHarness(win, executeCodexTool, undefined, (event) =>
       send('codex:event', event),
     );
+    updater = new AppUpdateService(
+      autoUpdater,
+      app.isPackaged && process.platform === 'win32' && !browserMode && process.env.IMAGINE_TEST !== '1',
+      (state) => send('app-update:state', state),
+      () => {
+        if (codex.busy) return 'Finish or stop the current Codex turn before restarting.';
+        if (jobs?.busy || jobs?.connecting || store?.snapshot().jobs.some((job) =>
+          ['queued', 'submitting', 'running', 'connection-unknown'].includes(job.state)))
+          return 'Finish, cancel, or reconcile ComfyUI jobs before restarting.';
+      },
+    );
+    nativeAutoUpdater.on('before-quit-for-update', () => { closing = true; });
+    handle('app-update:state', () => updater.state());
+    handle('app-update:check', () => updater.check());
+    handle('app-update:download', () => updater.download());
+    handle('app-update:install', (pendingCodexTasks: number) => updater.install(pendingCodexTasks));
+    updater.start();
     handle('codex:status', () => codex.status());
     handle('codex:busy', () => codex.busy);
     handle('codex:login', () => codex.login());
@@ -447,6 +470,8 @@ app
         getJobs: () => jobs,
         executeCodexTool,
         getCodex: () => codex,
+        getUpdater: () => updater,
+        getUpdateDriver: () => autoUpdater,
         contained,
       };
     }
@@ -493,6 +518,7 @@ if (browserMode) {
   process.on('SIGTERM', () => app.quit());
 }
 app.on('will-quit', () => {
+  updater?.close();
   embeddedBrowser?.close();
   browserServer?.close();
   codex?.close();

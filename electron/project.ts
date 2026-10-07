@@ -158,6 +158,10 @@ export class ProjectStore {
       ids.add(item.id);
     }
     for (const item of board.items) {
+      if (item.data.expandedSize && (
+        ![item.data.expandedSize.width, item.data.expandedSize.height].every(Number.isFinite) ||
+        item.data.expandedSize.width <= 0 || item.data.expandedSize.height <= 0
+      )) throw new Error('Invalid folder dimensions.');
       if (item.data.edgeLinks !== undefined && (
         !Array.isArray(item.data.edgeLinks) || item.data.edgeLinks.length > board.items.length ||
         item.data.edgeLinks.some((id) => typeof id !== 'string' || id === item.id || !ids.has(id))

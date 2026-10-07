@@ -48,7 +48,7 @@ test.afterEach(async () => {
 test('folders and character profiles persist; references drop into Codex', async () => {
   await page.getByLabel('Projects and boards').click();
   await page.getByLabel('Folder name', { exact: true }).fill('Cast');
-  await page.getByRole('button', { name: 'New folder', exact: true }).click();
+  await page.getByRole('region', { name: 'Project library' }).getByRole('button', { name: 'New folder', exact: true }).click();
   await expect(page.getByRole('button', { name: '📁 Cast' })).toBeVisible();
   await page.getByLabel('Select reference hero.png').check();
   const folderId = await page.evaluate(
@@ -134,6 +134,78 @@ test('queued Codex tasks wait for completion, retain references, and pause on fa
   await expect(page.getByRole('button', { name: 'Resume queue' })).toBeVisible();
   await page.getByLabel('Cancel queued task 1').click();
   await expect(page.getByLabel('Queued Codex tasks')).toHaveCount(0);
+});
+
+test('a reply after generation failure runs first and resumes pending tasks only after success', async () => {
+  await app.evaluate(() => {
+    const codex = (globalThis as any).imagineTest.getCodex();
+    (globalThis as any).testRuns = [];
+    codex.status = async () => ({ signedIn: true, label: 'Synthetic test provider' });
+    codex.run = async (_board: string, text: string) => {
+      (globalThis as any).testRuns.push(text);
+      if (text === 'Submission failure') {
+        codex.emit('done', 'Stopped');
+        throw new Error('Synthetic submission failure');
+      }
+    };
+    codex.stop = async () => codex.emit('done', 'interrupted');
+  });
+  const runs = () => app.evaluate(() => (globalThis as any).testRuns as string[]);
+  const emit = (type: string, text: string) =>
+    app.evaluate((_, e) => (globalThis as any).imagineTest.getCodex().emit(e.type, e.text), {
+      type,
+      text,
+    });
+  const send = async (text: string) => {
+    await page.getByLabel('Codex request').fill(text);
+    await page.getByLabel('Codex request').press('Enter');
+  };
+  await page.getByRole('button', { name: 'Connect / refresh', exact: true }).click();
+  await send('Generate');
+  await expect.poll(runs).toEqual(['Generate']);
+  await send('Pending one');
+  await send('Pending two');
+  await emit('error', 'Image generation failed.');
+  await emit('done', 'completed');
+  await expect(page.getByRole('button', { name: 'Resume queue' })).toBeVisible();
+  await send('Use a simpler prompt');
+  await expect.poll(runs).toEqual(['Generate', 'Use a simpler prompt']);
+  await expect(page.getByLabel('Queued Codex tasks')).toContainText('2 queued');
+  // Streaming a response is not completion; a second generation error keeps the queue paused.
+  await emit('text', 'Trying the revised prompt');
+  await emit('error', 'Image generation failed again.');
+  await emit('done', 'completed');
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeVisible();
+  expect(await runs()).toEqual(['Generate', 'Use a simpler prompt']);
+  await send('Submission failure');
+  await expect(page.getByText(/Request failed:.*Synthetic submission failure/)).toBeVisible();
+  await send('Skip the failed image');
+  await expect
+    .poll(runs)
+    .toEqual(['Generate', 'Use a simpler prompt', 'Submission failure', 'Skip the failed image']);
+  await emit('done', 'completed');
+  await expect
+    .poll(runs)
+    .toEqual([
+      'Generate',
+      'Use a simpler prompt',
+      'Submission failure',
+      'Skip the failed image',
+      'Pending one',
+    ]);
+  // Stop remains a deliberate pause: sending another message must not override it.
+  await page.getByTitle('Stop response').click();
+  await send('After stop');
+  await expect(page.getByLabel('Queued Codex tasks')).toContainText('2 queued');
+  expect((await runs()).at(-1)).toBe('Pending one');
+  await page.getByRole('button', { name: 'Resume queue' }).click();
+  await expect.poll(async () => (await runs()).at(-1)).toBe('Pending two');
+  await page.getByRole('button', { name: 'Pause queue' }).click();
+  await emit('error', 'Image generation failed.');
+  await emit('done', 'completed');
+  await send('After manual pause');
+  await expect(page.getByLabel('Queued Codex tasks')).toContainText('2 queued');
+  expect((await runs()).at(-1)).toBe('Pending two');
 });
 
 test('16 references cross the real Codex handoff as images; overflow remains editable', async () => {

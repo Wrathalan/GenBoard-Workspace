@@ -401,6 +401,11 @@ test('Codex tool bridge edits with undo and generates through the local harness'
 });
 
 test('installed Codex app-server initializes with isolated signed-out profile', async () => {
+  const installed = await app.evaluate(() => {
+    try { return !!(globalThis as any).imagineTest.getCodex().executable(); }
+    catch { return false; }
+  });
+  test.skip(!installed, 'This optional integration check requires a separately installed Codex executable.');
   await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
   const status = await page.evaluate(() => window.imagine.codexStatus());
   expect(status.signedIn).toBe(false);

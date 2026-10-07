@@ -1,0 +1,69 @@
+name: Build Windows release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify version tag
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -ne 'tag' -or $env:GITHUB_REF_NAME -ne "v$version") {
+            throw 'Run this workflow on a version tag matching package.json.'
+          }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright test
+      - run: node tests/browser.integration.mjs
+      - run: npm run package -- --publish never
+      - name: Verify update assets and write checksum
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $installer = "Weave.Setup.$version.exe"
+          foreach ($file in @($installer, "$installer.blockmap", 'latest.yml')) {
+            if (!(Test-Path -LiteralPath "release/$file")) { throw "Missing release asset: $file" }
+          }
+          $hash = (Get-FileHash -LiteralPath "release/$installer" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $installer" | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weave-windows-release
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+            release/SHA256SUMS.txt
+      - name: Create complete draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $existing = gh release view $env:GITHUB_REF_NAME --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if (($existing | ConvertFrom-Json).isDraft) {
+              Write-Host 'An existing draft is being prepared separately; preserving its notes and assets.'
+              exit 0
+            }
+            throw 'A published release already exists for this tag. Use a new version.'
+          }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          gh release create $env:GITHUB_REF_NAME --verify-tag --draft --title "Weave $version" --notes-file "docs/releases/$version.md" "release/Weave.Setup.$version.exe" "release/Weave.Setup.$version.exe.blockmap" release/latest.yml release/SHA256SUMS.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed.' }

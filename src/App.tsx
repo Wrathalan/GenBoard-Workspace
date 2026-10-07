@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { RecentProjects } from './RecentProjects';
 import { BoardSwitcher } from './BoardSwitcher';
+import { UpdateNotice } from './UpdateNotice';
 import { BoardNameDialog } from './BoardNameDialog';
 import { useBoardNavigation } from './useBoardNavigation';
 import { Library } from './Library';
@@ -42,7 +43,11 @@ import { Appearance } from './Appearance';
 import { Canvas, assetUrl } from './Canvas';
 import { Generation } from './Generation';
 import { fail, flush, useWorkspace } from './store';
+import { copyCanvasSelection, pasteCanvasSelection } from '../shared/canvas-clipboard';
 import { ContextMenu } from './ContextMenu';
+import { SendToDialog } from './SendToDialog';
+import { canSendItems, folderDestinations, sendToFolder } from '../shared/send-to';
+import { folderContents } from '../shared/board-folders';
 import {
   contextEntries,
   selectionPermissions,
@@ -50,7 +55,7 @@ import {
   type MenuAction,
   type SelectionAction,
 } from '../shared/context-menu';
-import type { Point, RecentProject } from '../shared/types';
+import type { CanvasItem, Point, RecentProject } from '../shared/types';
 
 export function App() {
   const project = useWorkspace((s) => s.project);
@@ -86,10 +91,17 @@ export function App() {
   const [jobRequest, setJobRequest] = useState<{ id: string; at: number }>();
   const [renameRequest, setRenameRequest] = useState<{ id: string; at: number }>();
   const [context, setContext] = useState<ContextTarget | null>(null);
+  const [sendRequest, setSendRequest] = useState<{ mode: 'folder' | 'board'; boardId: string; folder: string; ids: string[] } | null>(null);
   const canUndo = useWorkspace((s) => s.canUndo);
   const canRedo = useWorkspace((s) => s.canRedo);
   const returnFocus = useRef<HTMLElement | null>(null);
   const renameInput = useRef<HTMLInputElement>(null);
+  const canvasClipboard = useRef<{
+    token: string;
+    folder: string;
+    items: CanvasItem[];
+    pastes: number;
+  } | null>(null);
   const closeContext = useCallback(() => {
     setContext(null);
   }, []);
@@ -221,6 +233,16 @@ export function App() {
       if (['duplicate', 'group', 'ungroup', 'align', 'lock', 'remove'].includes(name))
         return runSelectionAction(name as SelectionAction);
       switch (name) {
+        case 'sendFolder':
+        case 'sendBoard':
+          setSendRequest({ mode: name === 'sendFolder' ? 'folder' : 'board', boardId: s.board.id,
+            folder: s.project.folder, ids: [...context.ids] });
+          return;
+        case 'folder':
+          s.select(context.ids);
+          return s.folder(point);
+        case 'toggleFolder':
+          return s.toggleFolder(item.id);
         case 'colors':
           setRight('inspect');
           return;
@@ -239,8 +261,10 @@ export function App() {
           return await pasteImage(point);
         case 'text':
           return addText(point);
-        case 'selectAll':
-          return s.select(s.board.items.map((i) => i.id));
+        case 'selectAll': {
+          const hidden = folderContents(s.board.items).hidden;
+          return s.select(s.board.items.filter((i) => !hidden.has(i.id)).map((i) => i.id));
+        }
         case 'fitBoard':
           await flow.fitView({ padding: 0.2, duration: 200 });
           return;
@@ -370,16 +394,14 @@ export function App() {
         s.redo();
       } else if (ctrl && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        s.select(s.board.items.map((i) => i.id));
+        const hidden = folderContents(s.board.items).hidden;
+        s.select(s.board.items.filter((i) => !hidden.has(i.id)).map((i) => i.id));
       } else if (ctrl && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         runSelectionAction('duplicate');
       } else if (ctrl && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         runSelectionAction(e.shiftKey ? 'ungroup' : 'group');
-      } else if (ctrl && e.key.toLowerCase() === 'v') {
-        e.preventDefault();
-        void pasteImage();
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         runSelectionAction('remove');
@@ -392,10 +414,87 @@ export function App() {
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [flow, viewer.length, help]);
+  useEffect(() => {
+    const mime = 'application/x-weave-canvas-selection';
+    const suppressed = (event: ClipboardEvent) =>
+      viewer.length ||
+      help ||
+      useWorkspace.getState().navigationPending ||
+      document.querySelector(
+        '[role="menu"], .board-switcher-menu, dialog[open], .modal-backdrop, .capturing',
+      ) ||
+      (event.target instanceof Element &&
+        event.target.closest(
+          'input, textarea, select, [contenteditable=true], .codex-panel, .embedded-browser',
+        ));
+    const copy = (event: ClipboardEvent) => {
+      if (suppressed(event) || !event.clipboardData) return;
+      const s = useWorkspace.getState();
+      if (!s.board || !s.project || !s.selected.length) return;
+      try {
+        const items = copyCanvasSelection(s.board.items, s.selected);
+        if (!items.length) return;
+        const token = crypto.randomUUID();
+        // Only a session token leaves the app. Canvas structure and project paths stay local.
+        event.clipboardData.setData(mime, token);
+        event.clipboardData.setData(
+          'text/plain',
+          items
+            .map((i) => i.data.text || i.data.label || '')
+            .filter(Boolean)
+            .join('\n') || 'Weave canvas selection',
+        );
+        event.preventDefault();
+        canvasClipboard.current = { token, folder: s.project.folder, items, pastes: 0 };
+      } catch (error) {
+        event.preventDefault();
+        fail(error);
+      }
+    };
+    const paste = (event: ClipboardEvent) => {
+      if (suppressed(event)) return;
+      const s = useWorkspace.getState();
+      if (!s.board || !s.project) return;
+      const token = event.clipboardData?.getData(mime);
+      event.preventDefault();
+      if (!token) {
+        void pasteImage();
+        return;
+      }
+      const copied = canvasClipboard.current;
+      if (!copied || copied.token !== token || copied.folder !== s.project.folder) {
+        fail('Copy the selection again from a board in this project.');
+        return;
+      }
+      const rect = document.querySelector('.canvas-wrap')!.getBoundingClientRect();
+      const point = flow.screenToFlowPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+      const offset = copied.pastes * 24;
+      const items = pasteCanvasSelection(copied.items, {
+        x: point.x + offset,
+        y: point.y + offset,
+      });
+      if (s.board.items.length + items.length > 10000) {
+        fail('This paste would exceed the board limit of 10,000 items.');
+        return;
+      }
+      s.change([...s.board.items, ...items]);
+      s.select(items.filter((i) => !i.parentId).map((i) => i.id));
+      copied.pastes++;
+    };
+    window.addEventListener('copy', copy);
+    window.addEventListener('paste', paste);
+    return () => {
+      window.removeEventListener('copy', copy);
+      window.removeEventListener('paste', paste);
+    };
+  }, [flow, viewer.length, help]);
   const selectedItems = board?.items.filter((i) => selected.includes(i.id)) || [];
   const images = selectedItems.filter((i) => i.type === 'image');
   const action =
-    (name: 'undo' | 'redo' | 'group' | 'ungroup' | 'duplicate' | 'align' | 'lock' | 'remove') =>
+    (name: 'undo' | 'redo' | SelectionAction) =>
     () =>
       name === 'undo' || name === 'redo'
         ? useWorkspace.getState()[name]()
@@ -439,6 +538,7 @@ export function App() {
           )}
         </div>
         <div className="top-right">
+          <UpdateNotice />
           {window.imagine.startAssetDrag && (
             <button
               title="Workspace browser"
@@ -494,6 +594,53 @@ export function App() {
         closeContext={closeContext}
       />
       {right === 'browser' && <BrowserPanel close={() => setRight(null)} />}
+      {sendRequest && board && project && sendRequest.boardId === board.id && sendRequest.folder === project.folder && (
+        <SendToDialog mode={sendRequest.mode} close={() => setSendRequest(null)}
+          destinations={sendRequest.mode === 'folder'
+            ? [
+              ...(sendRequest.ids.some((id) => board.items.find((i) => i.id === id)?.parentId)
+                ? [{ id: '', name: 'Board canvas (outside folders)' }] : []),
+              ...folderDestinations(board.items, sendRequest.ids).map((i) => ({ id: i.id, name: i.data.label || 'Folder' })),
+            ]
+            : project.boards.filter((b) => b.id !== board.id).map((b) => ({ id: b.id, name: b.name }))}
+          submit={async (id) => {
+            const state = useWorkspace.getState();
+            if (!state.board || !state.project || state.board.id !== sendRequest.boardId || state.project.folder !== sendRequest.folder)
+              throw new Error('The source board is no longer open.');
+            if (!canSendItems(state.board.items, sendRequest.ids))
+              throw new Error('The selection is no longer available to send.');
+            if (sendRequest.mode === 'folder') {
+              const next = sendToFolder(state.board.items, sendRequest.ids, id || null);
+              state.change(next);
+              const hidden = folderContents(next).hidden;
+              state.select(id ? [id].filter((selected) => !hidden.has(selected)) : sendRequest.ids);
+              return;
+            }
+            if (state.codexBusy || state.navigationPending)
+              throw new Error('Wait for the current workspace operation to finish before sending to another board.');
+            const copied = copyCanvasSelection(state.board.items, sendRequest.ids);
+            useWorkspace.setState({ navigationPending: true });
+            try {
+              await flush();
+              const fresh = await window.imagine.currentProject();
+              if (!fresh || fresh.folder !== sendRequest.folder) throw new Error('The project is no longer open.');
+              const destination = fresh.boards.find((b) => b.id === id);
+              if (!destination) throw new Error('The destination board is no longer available.');
+              if (destination.items.length + copied.length > 10000) throw new Error('This would exceed the destination board limit of 10,000 items.');
+              const top = destination.items.filter((i) => !i.parentId);
+              const copiedRoots = copied.filter((i) => !i.parentId);
+              const width = Math.max(...copiedRoots.map((i) => i.position.x + i.width)) - Math.min(...copiedRoots.map((i) => i.position.x));
+              const height = Math.max(...copiedRoots.map((i) => i.position.y + i.height)) - Math.min(...copiedRoots.map((i) => i.position.y));
+              const center = { x: (top.length ? Math.max(...top.map((i) => i.position.x + i.width)) + 48 : 100) + width / 2,
+                y: (top.length ? Math.min(...top.map((i) => i.position.y)) : 100) + height / 2 };
+              const items = pasteCanvasSelection(copied, center);
+              await window.imagine.saveBoard({ ...destination, items: [...destination.items, ...items] });
+              // A refresh failure must not offer to repeat an already-saved copy.
+              const updated = await window.imagine.currentProject().catch((error) => { fail(error); return null; });
+              if (updated) useWorkspace.getState().update(updated);
+            } finally { useWorkspace.setState({ navigationPending: false }); }
+          }} />
+      )}
       {context && board && (
         <ContextMenu
           screen={context.screen}
@@ -631,10 +778,10 @@ export function App() {
               <>
                 {selectedItems[0].type === 'group' && (
                   <label>
-                    Group name
+                    {selectedItems[0].data.folder ? 'Folder name' : 'Group name'}
                     <input
                       ref={renameInput}
-                      aria-label="Group name"
+                      aria-label={selectedItems[0].data.folder ? 'Folder name' : 'Group name'}
                       disabled={selectedItems[0].data.locked}
                       value={selectedItems[0].data.label || ''}
                       onChange={(e) =>
@@ -678,7 +825,16 @@ export function App() {
               </>
             )}
             <ItemAppearance items={selectedItems} />
+            {selectedItems.length === 1 && selectedItems[0].data.folder && (
+              <button className="wide secondary" onClick={() => useWorkspace.getState().toggleFolder(selectedItems[0].id)}>
+                {selectedItems[0].data.collapsed ? 'Expand folder' : 'Collapse folder'}
+              </button>
+            )}
             <div className="action-grid">
+              <button disabled={!selectionPermissions(selectedItems, board!.items, project.jobs).folder}
+                onClick={action('folder')}>
+                <FolderOpen size={15} /> Folder
+              </button>
               <button onClick={action('duplicate')}>
                 <Copy size={15} /> Duplicate
               </button>
@@ -761,6 +917,13 @@ export function App() {
             </button>
             <button title="Text card (T)" aria-label="Text card" onClick={() => addText()}>
               <Type size={18} />
+            </button>
+            <button title="New folder" aria-label="New folder" onClick={() => {
+              const s = useWorkspace.getState();
+              s.select([]);
+              s.folder(center());
+            }}>
+              <FolderOpen size={18} />
             </button>
             <button
               title="Group selection (Ctrl+G)"
@@ -850,7 +1013,7 @@ export function App() {
               ['Zoom', 'Mouse wheel'],
               ['Fit selection or board', 'F'],
               ['Add a text card', 'T'],
-              ['Paste image', 'Ctrl + V'],
+              ['Copy selection / paste selection or image', 'Ctrl + C / Ctrl + V'],
               ['Select all', 'Ctrl + A'],
               ['Duplicate', 'Ctrl + D'],
               ['Group / ungroup', 'Ctrl + G / Ctrl + Shift + G'],

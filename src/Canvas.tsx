@@ -10,7 +10,8 @@ import {
   type Node,
   type NodeChange,
 } from '@xyflow/react';
-import { Grid3X3, ScanLine, ImageIcon, LoaderCircle, Lock } from 'lucide-react';
+import { Grid3X3, ScanLine, ImageIcon, LoaderCircle, Lock, FolderOpen, Folder, ChevronDown, ChevronRight } from 'lucide-react';
+import { folderContents } from '../shared/board-folders';
 import { useWorkspace, fail, flush } from './store';
 import type { CanvasItem, ItemData, Point, Viewport } from '../shared/types';
 import { contextSelection, isRightDrag, type ContextTarget } from '../shared/context-menu';
@@ -25,6 +26,7 @@ import {
 import { itemColorVariables } from '../shared/appearance';
 import { sensitiveIds } from '../shared/spoilers';
 import { GRID_SIZE, snapPositions, type SnapGuide } from '../shared/snapping';
+import { snapResize, type ResizeBox } from '../shared/resize-snapping';
 import { dropIntoGroup } from '../shared/group-drop';
 import { ATTACH_REFERENCES, readReferences, referenceIds, writeReferences } from './references';
 import { BrowserDrag } from './BrowserDrag';
@@ -130,12 +132,23 @@ const TextNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
     </div>
   );
 });
-const GroupNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => (
-  <div className="group-node">
-    <Resize id={id} selected={selected} locked={data.locked} />
-    <span>{data.label || 'Reference group'}</span>
-  </div>
-));
+const GroupNode = memo(({ id, data, selected }: NodeProps<CanvasNode>) => {
+  const count = useWorkspace((s) => s.board?.items.filter((i) => i.parentId === id).length || 0);
+  return (
+    <div className={data.folder && data.collapsed ? 'folder-node' : 'group-node'}>
+      {!data.collapsed && <Resize id={id} selected={selected} locked={data.locked} />}
+      {data.folder ? <>
+        <button className="folder-toggle nodrag" aria-label={`${data.collapsed ? 'Expand' : 'Collapse'} folder ${data.label || 'Folder'}`}
+          onClick={() => useWorkspace.getState().toggleFolder(id)}>
+          {data.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          {data.collapsed ? <Folder size={20} /> : <FolderOpen size={20} />}
+          <span>{data.label || 'Folder'}</span>
+        </button>
+        <small>{count} {count === 1 ? 'item' : 'items'}</small>
+      </> : <span>{data.label || 'Reference group'}</span>}
+    </div>
+  );
+});
 const JobNode = memo(({ data }: NodeProps<CanvasNode>) => {
   const j = useWorkspace((s) => s.project?.jobs.find((j) => j.id === data.jobId));
   return (
@@ -178,10 +191,13 @@ export function Canvas({
     setCaptureMessage('');
   }, [board?.id]);
   const hidden = useMemo(() => sensitiveIds(board?.items || []), [board?.items]);
+  const folded = useMemo(() => folderContents(board?.items || []).hidden, [board?.items]);
+  const visibleItems = useMemo(() => (board?.items || []).filter((i) => !folded.has(i.id)), [board?.items, folded]);
   const selected = useWorkspace((s) => s.selected);
   const flow = useReactFlow();
   const dragging = useRef(false);
   const beforeDrag = useRef<CanvasItem[]>([]);
+  const resizeSession = useRef<{ start: CanvasItem; raw: ResizeBox; anchor?: Point } | null>(null);
   const finishDrag = (event: MouseEvent | TouchEvent | React.MouseEvent, ids: string[]) => {
     const e = 'changedTouches' in event ? event.changedTouches[0] : event;
     dragging.current = false;
@@ -227,13 +243,26 @@ export function Canvas({
     () => localStorage.getItem('imagine.snapAlignment') !== 'false',
   );
   const [guides, setGuides] = useState<SnapGuide[]>([]);
+  useEffect(() => {
+    const finishResize = () => {
+      if (!resizeSession.current) return;
+      resizeSession.current = null;
+      setGuides([]);
+    };
+    window.addEventListener('pointerup', finishResize);
+    window.addEventListener('pointercancel', finishResize);
+    return () => {
+      window.removeEventListener('pointerup', finishResize);
+      window.removeEventListener('pointercancel', finishResize);
+    };
+  }, []);
   const contacts = useMemo(
-    () => (alignment ? availableEdgeContacts(board?.items || [], selected) : []),
-    [board?.items, selected, alignment],
+    () => (alignment ? availableEdgeContacts(visibleItems, selected) : []),
+    [visibleItems, selected, alignment],
   );
   const linkedPairs = useMemo(
-    () => edgePairs(board?.items || [], selected),
-    [board?.items, selected],
+    () => edgePairs(visibleItems, selected),
+    [visibleItems, selected],
   );
   const links = linkedPairs.map(([a, b]) => {
     const items = board!.items;
@@ -249,6 +278,7 @@ export function Canvas({
   }, [alignment]);
   useEffect(() => {
     setGuides([]);
+    resizeSession.current = null;
   }, [board?.id, grid, alignment]);
   const gesture = useRef<{
     start: Point;
@@ -279,7 +309,7 @@ export function Canvas({
   };
   const nodes = useMemo<CanvasNode[]>(
     () =>
-      (board?.items || []).map((i) => ({
+      visibleItems.map((i) => ({
         ...i,
         type: hidden.has(i.id) && (!revealed || capturing) ? 'spoiler' : i.type,
         style: { width: i.width, height: i.height, ...itemColorVariables(i.data.colors) },
@@ -289,15 +319,53 @@ export function Canvas({
         deletable: false,
         zIndex: i.type === 'group' ? -1 : 0,
       })),
-    [board?.items, selected, hidden, revealed, capturing, blockedMotion],
+    [visibleItems, selected, hidden, revealed, capturing, blockedMotion],
   );
   const changes = useCallback(
     (changes: NodeChange<CanvasNode>[]) => {
       const s = useWorkspace.getState();
       if (!s.board) return;
+      const folded = folderContents(s.board.items).hidden;
+      const visible = s.board.items.filter((i) => !folded.has(i.id));
+      const dimension = changes.find((c) => c.type === 'dimensions' && c.resizing && c.dimensions);
+      let resized: ReturnType<typeof snapResize> | undefined;
+      if (dimension?.type === 'dimensions' && dimension.dimensions) {
+        const item = s.board.items.find((i) => i.id === dimension.id);
+        if (
+          item &&
+          !item.parentId &&
+          !item.data.locked &&
+          !edgeLinkedRoots(s.board.items).has(item.id)
+        ) {
+          if (resizeSession.current?.start.id !== item.id)
+            resizeSession.current = {
+              start: structuredClone(item),
+              raw: { ...item.position, width: item.width, height: item.height },
+            };
+          const session = resizeSession.current;
+          const position = changes.find((c) => c.type === 'position' && c.id === item.id);
+          session.raw = {
+            ...session.raw,
+            ...dimension.dimensions,
+            ...(position?.type === 'position' ? position.position : {}),
+          };
+          resized = snapResize(
+            visible,
+            session.start,
+            session.raw,
+            s.board.viewport.zoom,
+            grid,
+            alignment,
+            session.anchor,
+          );
+          setGuides(resized.guides);
+        }
+      }
+      const resizeId = resizeSession.current?.start.id;
       const proposed = new Map<string, Point>();
       for (const c of changes) {
         if (c.type !== 'position' || !c.position) continue;
+        if (c.id === resizeId) continue;
         // Pointer release repeats cached child-relative coordinates from the last drag tick.
         if (dragging.current && c.dragging === false) continue;
         if (c.dragging === undefined && s.board.items.find((i) => i.id === c.id)?.parentId)
@@ -305,7 +373,7 @@ export function Canvas({
         proposed.set(c.id, c.position);
       }
       const rigid = rigidPositions(s.board.items, proposed);
-      const snapped = snapPositions(s.board.items, rigid, s.board.viewport.zoom, grid, alignment);
+      const snapped = snapPositions(visible, rigid, s.board.viewport.zoom, grid, alignment);
       const motion = [...snapped.positions].filter(([id, p]) => {
         const old = s.board!.items.find((i) => i.id === id)!;
         return old.position.x !== p.x || old.position.y !== p.y;
@@ -324,6 +392,13 @@ export function Canvas({
       const selection = new Set(s.selected);
       let items = s.board.items;
       let mutated = false;
+      if (resized) {
+        const { x, y, width, height } = resized.box;
+        items = items.map((i) =>
+          i.id === resizeId ? { ...i, position: { x, y }, width, height } : i,
+        );
+        mutated = true;
+      }
       for (const c of changes) {
         if (c.type === 'select') {
           c.selected ? selection.add(c.id) : selection.delete(c.id);
@@ -334,6 +409,7 @@ export function Canvas({
         }
         if (
           c.type === 'dimensions' &&
+          c.id !== resizeId &&
           c.dimensions &&
           c.resizing &&
           !s.board.items.find((i) => i.id === c.id)?.parentId &&
@@ -345,6 +421,12 @@ export function Canvas({
       }
       if (changes.some((c) => c.type === 'select')) s.select([...selection]);
       if (mutated) s.change(items, false);
+      if (
+        changes.some((c) => c.type === 'dimensions' && c.id === resizeId && c.resizing === false)
+      ) {
+        resizeSession.current = null;
+        setGuides([]);
+      }
     },
     [grid, alignment],
   );
@@ -371,6 +453,28 @@ export function Canvas({
       aria-labelledby={board ? `board-tab-${board.id}` : undefined}
       tabIndex={-1}
       onPointerDownCapture={(e) => {
+        const control = (e.target as HTMLElement).closest('.react-flow__resize-control');
+        if (e.button === 0 && control) {
+          const id = control.closest<HTMLElement>('.react-flow__node')?.dataset.id;
+          const item = useWorkspace.getState().board?.items.find((i) => i.id === id);
+          if (item) {
+            const horizontal =
+              control.classList.contains('left') || control.classList.contains('right');
+            const vertical =
+              control.classList.contains('top') || control.classList.contains('bottom');
+            const anchor = {
+              x: control.classList.contains('left') ? 1 : 0,
+              y: control.classList.contains('top') ? 1 : 0,
+            };
+            if (item.type === 'image' && !vertical) anchor.y = anchor.x;
+            if (item.type === 'image' && !horizontal) anchor.x = anchor.y;
+            resizeSession.current = {
+              start: structuredClone(item),
+              raw: { ...item.position, width: item.width, height: item.height },
+              anchor,
+            };
+          }
+        }
         if (
           e.button !== 2 ||
           (e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]')

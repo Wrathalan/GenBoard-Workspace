@@ -1,6 +1,7 @@
 import { absolutePosition } from './board';
 import { motionLocks, motionRoots, motionComponents, edgeLinkedRoots } from './group-motion';
 import type { CanvasItem, Point } from './types';
+import { folderContents } from './board-folders';
 
 /** Drop rigid roots into the innermost unlocked group, preserving world positions. */
 export function dropIntoGroup(items: CanvasItem[], ids: string[], point: Point): CanvasItem[] {
@@ -11,10 +12,12 @@ export function dropIntoGroup(items: CanvasItem[], ids: string[], point: Point):
   const edgeLinked = edgeLinkedRoots(items);
   for (const root of moving) for (const peer of components.get(root!) || []) moving.add(peer);
   if (!moving.size) return items;
+  const { hidden } = folderContents(items);
   const target = items
     .filter((i) => {
       if (
         i.type !== 'group' ||
+        hidden.has(i.id) ||
         moving.has(roots.get(i.id)) ||
         locked.has(roots.get(i.id)!) ||
         edgeLinked.has(roots.get(i.id)!)
@@ -40,12 +43,16 @@ export function dropIntoGroup(items: CanvasItem[], ids: string[], point: Point):
     const children = result.filter((i) => i.parentId === parent);
     const dx = Math.min(0, ...children.map((i) => i.position.x - 24));
     const dy = Math.min(0, ...children.map((i) => i.position.y - 40));
-    const width = Math.max(group.width, ...children.map((i) => i.position.x + i.width + 24)) - dx;
+    const size = group.data.collapsed ? group.data.expandedSize || group : group;
+    const width = Math.max(size.width, ...children.map((i) => i.position.x + i.width + 24)) - dx;
     const height =
-      Math.max(group.height, ...children.map((i) => i.position.y + i.height + 24)) - dy;
+      Math.max(size.height, ...children.map((i) => i.position.y + i.height + 24)) - dy;
     result = result.map((i) =>
       i.id === parent
-        ? { ...i, position: { x: i.position.x + dx, y: i.position.y + dy }, width, height }
+        ? { ...i, position: { x: i.position.x + dx, y: i.position.y + dy },
+            ...(i.data.collapsed
+              ? { data: { ...i.data, expandedSize: { width, height } } }
+              : { width, height }) }
         : i.parentId === parent
           ? { ...i, position: { x: i.position.x - dx, y: i.position.y - dy } }
           : i,

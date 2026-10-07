@@ -10,7 +10,19 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave Setup 0.4.0.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave.Setup.0.4.1.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+
+### In-app updates
+
+Installed Windows desktop builds check GitHub shortly after launch and every six hours. When a newer stable release is available, a small **Update available** button appears in the top bar. Click it to download; progress stays in the same button. When ready, click **Restart to update**. The app saves board edits and project style first, and refuses to restart if saving fails, a Codex turn is running, Codex tasks remain queued, or ComfyUI jobs are pending/running/unreconciled. Complete or clear that work, then click again. Closing the app normally does not install a downloaded update.
+
+Offline checks stay quiet; failed downloads and installer launches offer a retry beside the button. Development builds and browser clients do not download or install updates. Existing 0.4.0 installations need a manual upgrade to 0.4.1 to receive the updater.
+
+### Publishing update-enabled releases
+
+Each new release needs a higher `package.json`/lockfile version and a matching `v` tag. `.github/workflows/release.yml` tests and builds tagged Windows releases, then creates a draft containing the installer, its `.blockmap`, `latest.yml`, and `SHA256SUMS.txt`. Review the release notes and publish the complete draft to make it available to clients. The workflow can also be dispatched on a matching version tag; it refuses to overwrite an existing release. Local packaging uses the same GitHub provider configuration; use `npm run package -- --publish never` to build without uploading. Keep all generated update assets together and do not edit the manifest's hashes or rename its referenced files. GitHub credentials belong only in the release workflow, never in the application.
+
+Signing remains unchanged: these builds are unsigned. The updater validates downloaded file checksums; Windows publisher verification requires configuring a real signing certificate and publisher identity in the build before shipping signed updates. Test a real installed-version upgrade in an isolated Windows environment before publishing the first updater release. Updater implementation follows [electron-builder's NSIS/GitHub documentation](https://www.electron.build/v26/docs/features/auto-update/).
 
 For development, install Node.js 24 LTS and run:
 
@@ -89,6 +101,14 @@ Weave uses the approved flame icon throughout the desktop app, browser tab, and 
 
 The installer retains the existing `local.imagine.workspace` identity, and the app continues using `%APPDATA%/local-imagine-workspace` for preferences and Codex sign-in. Project folders, internal protocols, and saved setting keys remain compatible with previous versions.
 
+## On-board folders
+
+Right-click selected cards and choose **Move selection into folder**, or right-click empty canvas and choose **New folder here**. Drag cards or imported images onto a folder to add them. Use the folder's arrow to expand or collapse it; rename it through **Rename folder** or the Inspector's **Folder name** field. **Ungroup** releases its contents onto the board.
+
+Use **Send to folder…** in the card context menu to search existing folders and move selected cards or complete groups into one. Members can return to **Board canvas (outside folders)** through the same picker. Folder moves support undo. **Send to board…** copies the selection to another board in the same project, preserving its contents and keeping the originals; the picker explains this before choosing a destination. Locked items and generation jobs cannot be sent.
+
+Collapsed folders show a compact card and item count. Their contents stay saved with their layout but are removed from canvas rendering, selection, and snapping, reducing visible canvas work on large boards. Nested folders keep their own collapsed state. Folder changes support undo/redo, duplication, and copy/paste across boards.
+
 ## Board navigation
 
 Click a board tab in the top bar to switch boards. The active tab is highlighted, and the strip scrolls horizontally when needed. With a tab focused, Left/Right or Home/End moves focus; Enter or Space switches to that board.
@@ -100,6 +120,8 @@ Use the **+** button or choose **New board** in search to enter a new board's na
 The arrow beside the tabs returns to the last successfully visited board; clicking again toggles back. It remembers visits within the current project session, resets when changing projects or reloading, and restores each board's saved pan and zoom. Navigation saves pending edits first and stays on the current board if saving fails.
 
 While Codex is running, you can search board names, but switching and creation wait until the turn finishes or you stop it in the Codex panel. Navigation never stops Codex automatically.
+
+To copy items between boards, select images, notes, or groups, press **Ctrl+C**, switch boards, then press **Ctrl+V**. Groups keep their children and layout; image assets are reused, and copied edge links receive new item IDs. Paste places the selection at the canvas center and offsets repeated copies. **Ctrl+Z** undoes a paste. The canvas clipboard lasts for this app session and works within the same project; copy again after reloading or changing projects. Text fields retain normal copy/paste, and system clipboard images still paste onto the canvas. Generation job placeholders cannot be copied.
 
 ## Recent projects (0.3.1)
 
@@ -113,7 +135,7 @@ Select 1–16 library images or canvas images, then choose **New character from 
 
 Drag an image, note, or whole group onto an unlocked group to join it. The destination grows to contain the new members, positions are preserved, and the change supports undo/redo. Existing groups still move as a unit. Library images and dropped files can also be placed directly into groups. Drag a canvas image into the Codex panel, or use its corner drag handle, to attach it while keeping its board position. References are sent online only when the request runs.
 
-While Codex is working, **Enter** or **Queue** adds the next request. Each queued task keeps its prompt, character details, images, target board, and output position from enqueue time. Use the queue controls to pause, resume, reorder, or cancel pending tasks. Failure or **Stop** pauses the queue; failed requests are not automatically retried. Tasks for another board wait until that board is active. The queue lasts for the current project session and is cleared by reloading, closing the app, or switching projects; saved folders and characters persist.
+While Codex is working, **Enter** or **Queue** adds the next request. Each queued task keeps its prompt, character details, images, target board, and output position from enqueue time. Use the queue controls to pause, resume, reorder, or cancel pending tasks. After a generation or request failure, wait for the response to finish, then send your follow-up: it runs ahead of pending tasks, and the queue resumes automatically when it completes without a reported error. Another failure keeps the queue paused; failed requests are not automatically retried. **Pause queue** and **Stop** still require **Resume queue**. Tasks for another board wait until that board is active. The queue lasts for the current project session and is cleared by reloading, closing the app, or switching projects; saved folders and characters persist.
 
 ## Use the workspace
 
@@ -150,7 +172,9 @@ Click the palette button beside keyboard help to customize the canvas background
 
 ## Grid and alignment snapping (0.1.2)
 
-Use **Grid** and **Guides** at the top of the canvas to toggle snapping. Both start enabled and remember your preference locally. Dragged cards and selections snap to the 24-pixel dot grid. Near another image or note, alignment takes priority: lines mark matching left/right edges, top/bottom edges, or centers within six screen pixels. Selections keep their spacing, including grouped cards, and moves remain undoable. These controls apply to dragging; resizing and import placement retain their existing behavior.
+Use **Grid** and **Guides** at the top of the canvas to toggle snapping. Both start enabled and remember your preference locally. Dragged cards and selections snap to the 24-pixel dot grid. Near another image or note, alignment takes priority: lines mark matching left/right edges, top/bottom edges, or centers within six screen pixels. Touching edges and their matching endpoints take priority within eight screen pixels, without pulling an edge onto another item's center. Selections keep their spacing, including grouped cards, and moves remain undoable.
+
+Resize handles also snap to nearby edges and the grid. The opposite corner stays fixed, including at fractional zoom, and images keep their saved aspect ratio. For images, one exact edge match determines the size when matching both axes would distort the image. Disable Grid and Guides for free resizing. Undo restores the entire resize in one step; edge-linked images must still be unlocked before resizing.
 
 ## Right-click menus (0.1.1)
 

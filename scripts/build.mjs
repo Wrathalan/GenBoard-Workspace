@@ -8,7 +8,7 @@ await build({
   platform: 'node',
   target: 'node22',
   format: 'cjs',
-  external: ['electron', 'better-sqlite3', 'sharp'],
+  external: ['electron', 'better-sqlite3', 'sharp', 'electron-updater'],
   sourcemap: true,
 });
 await copyFile(

@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.4.1 — 2026-10-07
+
+### GitHub updates in the top bar
+
+- Check for stable GitHub releases in installed Windows desktop builds and show a compact update notification in the top bar.
+- Click to download with inline progress, then restart after saving. Protect active generation and queued Codex tasks, and retain the current app when a save or download fails.
+- Keep automatic checks quiet offline, support retries, and disable update installation in browser/development mode.
+- Generate updater metadata and add a Windows release workflow that uploads a complete draft release. Signing remains unchanged; existing 0.4.0 users need one manual upgrade.
+
+### Send-to context menu
+
+- Add searchable Send to folder and Send to board destination pickers for selected cards and groups.
+- Move items into existing folders or back onto the canvas with undo support, preserving nested content and layout.
+- Copy selections to another board with fresh IDs, save-first behavior, and destination capacity checks; keep the source items.
+- Exclude locked items, generation jobs, and destinations that would create hierarchy cycles.
+
+### On-board folders
+
+- Add named on-board folders with compact collapse/expand controls and drag-in support, including nested folders.
+- Remove collapsed contents from canvas rendering, selection, and snapping while preserving their saved layout.
+- Support undo/redo, naming, duplication, copy/paste, and releasing folder contents through Ungroup.
+
+### Resume queued tasks after a failure reply
+
+- Run a new reply immediately when a Codex generation/request failure has paused the queue, ahead of pending tasks.
+- Resume pending tasks in their existing order after that reply completes without a reported error. Another failure keeps them paused; failed requests are never automatically retried.
+- Preserve explicit Pause and Stop behavior and show the recovery behavior beside the composer.
+
+### Copy and paste between boards
+
+- Add Ctrl+C/Ctrl+V for selected images, notes, and groups across boards in the same project session.
+- Preserve group layout, image references, dimensions, sensitive marking, and internal edge links with fresh item IDs and undoable pastes.
+- Keep native text editing and system-image paste behavior, and offset repeated pastes so they do not land directly on one another.
+
+### Precise alignment and resizing
+
+- Prefer the joined neighbor's matching endpoints over unrelated center guides when dragging images edge to edge.
+- Snap resize handles to nearby edges and the grid while preserving image proportions and the opposite anchor exactly.
+- Keep fractional saved dimensions during resizing and fill the image bounds despite thumbnail rounding, preventing small gaps and edge drift.
+
 ## 0.4.0 — 2026-10-04
 
 ### Codex image attachments

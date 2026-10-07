@@ -7,6 +7,11 @@ export function createWorkspaceAPI(
   finishClose: () => void,
 ): WorkspaceAPI {
   return {
+    appUpdateState: () => invoke('app-update:state'),
+    checkAppUpdate: () => invoke('app-update:check'),
+    downloadAppUpdate: () => invoke('app-update:download'),
+    installAppUpdate: (pendingCodexTasks) => invoke('app-update:install', pendingCodexTasks),
+    onAppUpdate: (callback) => subscribe('app-update:state', callback),
     saveLibrary: (library) => invoke('library:save', library),
     captureCanvas: (rect) => invoke('canvas:capture', rect),
     recentProjects: () => invoke('project:recent'),

@@ -7,6 +7,7 @@ import {
 } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import sharp from 'sharp';
 let app: ElectronApplication, page: Page, folder: string;
 const trigger = () => page.getByRole('button', { name: /^Switch board:/ });
 const activeTab = () => page.getByRole('tab', { selected: true });
@@ -56,6 +57,95 @@ test.afterEach(async () => {
   await app?.close();
 });
 
+test('copy and paste carries selected images, notes and groups between boards with undo', async () => {
+  const bytes = [
+    ...(await sharp({ create: { width: 120, height: 80, channels: 3, background: '#506070' } })
+      .png()
+      .toBuffer()),
+  ];
+  const source = await page.evaluate(async (bytes) => {
+    const [asset] = await window.imagine.importImages([
+      { name: 'reference.png', bytes: new Uint8Array(bytes) },
+    ]);
+    const project = (await window.imagine.currentProject())!,
+      board = project.boards[0];
+    board.viewport = { x: 0, y: 0, zoom: 1 };
+    board.items = [
+      {
+        id: 'group',
+        type: 'group',
+        position: { x: 100, y: 150 },
+        width: 350,
+        height: 180,
+        data: { label: 'Copy group' },
+      },
+      {
+        id: 'image',
+        type: 'image',
+        parentId: 'group',
+        position: { x: 20, y: 40 },
+        width: 120,
+        height: 80,
+        data: { assetId: asset.id, edgeLinks: ['note'] },
+      },
+      {
+        id: 'note',
+        type: 'text',
+        parentId: 'group',
+        position: { x: 140, y: 40 },
+        width: 160,
+        height: 80,
+        data: { text: 'Keep this note', edgeLinks: ['image'] },
+      },
+    ];
+    await window.imagine.saveBoard(board);
+    return board;
+  }, bytes);
+  await page.reload();
+  await page.locator('.canvas-wrap').focus();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Control+c');
+  await create('Destination');
+  await page.keyboard.press('Control+v');
+  await expect(page.locator('.image-node')).toHaveCount(1);
+  await expect(page.locator('.text-node')).toContainText('Keep this note');
+  await page.keyboard.press('Control+s');
+  let project = (await page.evaluate(() => window.imagine.currentProject()))!;
+  const copied = project.boards.find((b) => b.id === project.activeBoardId)!.items;
+  expect(project.boards.find((b) => b.id === source.id)!.items).toEqual(source.items);
+  const group = copied.find((i) => i.type === 'group')!,
+    image = copied.find((i) => i.type === 'image')!,
+    note = copied.find((i) => i.type === 'text')!;
+  expect(image.parentId).toBe(group.id);
+  expect(image.data.assetId).toBe(source.items[1].data.assetId);
+  expect(image.position).toEqual(source.items[1].position);
+  expect(image.data.edgeLinks).toEqual([note.id]);
+  expect(note.data.edgeLinks).toEqual([image.id]);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.image-node')).toHaveCount(0);
+  await page.keyboard.press('Control+y');
+  await expect(page.locator('.image-node')).toHaveCount(1);
+  await page.keyboard.press('Control+v');
+  await expect(page.locator('.image-node')).toHaveCount(2);
+  await page.keyboard.press('Control+s');
+  project = (await page.evaluate(() => window.imagine.currentProject()))!;
+  const items = project.boards.find((b) => b.id === project.activeBoardId)!.items;
+  expect(new Set(items.map((i) => i.id)).size).toBe(6);
+  const groups = items.filter((i) => i.type === 'group');
+  expect(groups[1].position.x - groups[0].position.x).toBe(24);
+  // Native text clipboard behavior must not be replaced by the canvas clipboard.
+  const dialog = await nameDialog('rename');
+  await dialog.getByRole('textbox').fill('Plain text');
+  await dialog.getByRole('textbox').press('Control+a');
+  await dialog.getByRole('textbox').press('Control+c');
+  await dialog.getByRole('textbox').fill('');
+  await dialog.getByRole('textbox').press('Control+v');
+  await expect(dialog.getByRole('textbox')).toHaveValue('Plain text');
+  await dialog.getByRole('textbox').press('Escape');
+  await page.reload();
+  await expect(page.locator('.image-node')).toHaveCount(2);
+});
+
 test('search, naming, focus, shortcuts, undo history, and narrow layouts', async () => {
   await expect(previous()).toBeDisabled();
   await page.getByRole('button', { name: 'Text card', exact: true }).click();
@@ -95,7 +185,10 @@ test('search, naming, focus, shortcuts, undo history, and narrow layouts', async
   await expect(activeTab()).toHaveText('Reference studies');
   await page.keyboard.press('Enter');
   await expect(activeTab()).toHaveText('Color studies');
-  await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', await activeTab().getAttribute('id') as string);
+  await expect(page.getByRole('tabpanel')).toHaveAttribute(
+    'aria-labelledby',
+    (await activeTab().getAttribute('id')) as string,
+  );
   await trigger().focus();
   await page.keyboard.press('Control+Shift+b');
   const search = page.getByRole('combobox', { name: 'Search boards' });

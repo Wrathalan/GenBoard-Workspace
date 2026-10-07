@@ -95,6 +95,10 @@ try {
   await new Promise(resolve => comfyMock.listen(0, resolve));
   let { call, url, cookie } = await launch();
   assert.equal(await call('project:current'), null);
+  assert.equal((await call('app-update:state')).phase, 'unsupported');
+  assert.equal((await call('app-update:check')).phase, 'unsupported');
+  await assert.rejects(call('app-update:download'), /installed desktop app/);
+  await assert.rejects(call('app-update:install', 0), /installed desktop app/);
   await assert.rejects(call('project:open-path', 'relative/folder', true), /full path/);
   const project = await call('project:open-path', projectFolder, true);
   const caps = await call('comfy:connect', comfyMock.address().port, 'localhost');

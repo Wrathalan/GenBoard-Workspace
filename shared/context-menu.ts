@@ -1,7 +1,8 @@
 import { motionRoots, motionLocks } from './group-motion';
 import type { CanvasItem, Job, Point } from './types';
+import { canSendItems } from './send-to';
 
-export type SelectionAction = 'duplicate' | 'group' | 'ungroup' | 'align' | 'lock' | 'remove';
+export type SelectionAction = 'duplicate' | 'group' | 'folder' | 'ungroup' | 'align' | 'lock' | 'remove';
 export type MenuAction =
   | SelectionAction
   | 'spoiler'
@@ -21,6 +22,9 @@ export type MenuAction =
   | 'revealImage'
   | 'editText'
   | 'rename'
+  | 'toggleFolder'
+  | 'sendFolder'
+  | 'sendBoard'
   | 'fitSelection'
   | 'compare'
   | 'jobDetails'
@@ -66,6 +70,7 @@ export function selectionPermissions(
   return {
     duplicate: editable && noJobs,
     group: editable && noJobs && items.every((i) => !i.parentId),
+    folder: editable && noJobs && items.every((i) => !i.parentId),
     ungroup: editable && items.every((i) => i.type === 'group'),
     align: units.size > 1 && !movementLocked,
     lock: items.length > 0 && noJobs,
@@ -98,6 +103,7 @@ export function contextEntries(
     add('import', 'Import images here…', 0);
     add('paste', 'Paste image here', 0, true, 'Ctrl+V');
     add('text', 'Add text here', 0, true, 'T');
+    add('folder', 'New folder here', 0);
     add('selectAll', 'Select all', 1, all.length > 0, 'Ctrl+A');
     add('fitBoard', 'Fit board', 1, all.length > 0);
     add('resetZoom', 'Reset zoom', 1);
@@ -131,12 +137,20 @@ export function contextEntries(
     add('revealImage', 'Show in Explorer', 1);
   }
   if (one?.type === 'text') add('editText', 'Edit text', 0, !one.data.locked);
-  if (one?.type === 'group') add('rename', 'Rename group', 0, !one.data.locked);
+  if (one?.type === 'group') {
+    add('rename', one.data.folder ? 'Rename folder' : 'Rename group', 0, !one.data.locked);
+    if (one.data.folder)
+      add('toggleFolder', one.data.collapsed ? 'Expand folder' : 'Collapse folder', 0);
+  }
   if (items.length === 2 && items.every((i) => i.type === 'image'))
     add('compare', 'Compare images', 0);
   const permissions = selectionPermissions(items, all, jobs);
+  const sendable = canSendItems(all, items.map((i) => i.id));
+  add('sendFolder', 'Send to folder…', 2, sendable);
+  add('sendBoard', 'Send to board…', 2, sendable);
   add('duplicate', 'Duplicate', 2, permissions.duplicate, 'Ctrl+D');
   if (one?.type !== 'group') add('group', 'Group', 2, permissions.group, 'Ctrl+G');
+  add('folder', 'Move selection into folder', 2, permissions.folder);
   if (items.some((i) => i.type === 'group'))
     add('ungroup', 'Ungroup', 2, permissions.ungroup, 'Ctrl+Shift+G');
   if (items.length > 1) add('align', 'Align top', 2, permissions.align);

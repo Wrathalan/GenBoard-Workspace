@@ -7,6 +7,7 @@ import {
 } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import sharp from 'sharp';
 let app: ElectronApplication, page: Page, folder: string;
 async function launch(create: boolean) {
   const env: Record<string, string> = {
@@ -74,6 +75,83 @@ test.beforeEach(async () => {
 });
 test.afterEach(async () => {
   await app?.close();
+});
+
+test('image resize preserves fixed edges, snaps to neighbors, and survives undo and reload at fractional zoom', async () => {
+  const bytes = [
+    ...(await sharp({ create: { width: 300, height: 200, channels: 3, background: '#65768a' } })
+      .png()
+      .toBuffer()),
+  ];
+  await page.evaluate(async (bytes) => {
+    const [asset] = await window.imagine.importImages([
+      { name: 'alignment.png', bytes: new Uint8Array(bytes) },
+    ]);
+    const p = (await window.imagine.currentProject())!,
+      b = p.boards[0];
+    b.viewport = { x: 80, y: 60, zoom: 0.65 };
+    b.items = [
+      {
+        id: 'image',
+        type: 'image',
+        position: { x: 250.25, y: 220.5 },
+        width: 137.25,
+        height: 91.5,
+        data: { assetId: asset.id },
+      },
+      {
+        id: 'neighbor',
+        type: 'text',
+        position: { x: 500.75, y: 190 },
+        width: 150,
+        height: 250,
+        data: { text: 'Target edge' },
+      },
+    ];
+    await window.imagine.saveBoard(b);
+  }, bytes);
+  await page.reload();
+  await node('image').click();
+  const original = (await snapshot()).find((i) => i.id === 'image')!;
+  const resize = async (handle: string, dx: number, dy: number) => {
+    const bounds = (await node('image')
+      .locator(`.react-flow__resize-control.handle.${handle}`)
+      .boundingBox())!;
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width / 2 + dx, bounds.y + bounds.height / 2 + dy, {
+      steps: 12,
+    });
+    await page.mouse.up();
+    await page.keyboard.press('Control+s');
+  };
+  await resize('top.left', -26, -18);
+  let item = (await snapshot()).find((i) => i.id === 'image')!;
+  expect(item.width).toBeGreaterThan(original.width);
+  expect(item.position.x + item.width).toBeCloseTo(387.5, 6);
+  expect(item.position.y + item.height).toBeCloseTo(312, 6);
+  expect(item.width / item.height).toBeCloseTo(1.5, 6);
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+s');
+  expect((await snapshot()).find((i) => i.id === 'image')).toEqual(original);
+  await resize('bottom.right', 72, 48);
+  item = (await snapshot()).find((i) => i.id === 'image')!;
+  expect(item.position).toEqual(original.position);
+  expect(item.position.x + item.width).toBeCloseTo(500.75, 6);
+  expect(item.width / item.height).toBeCloseTo(1.5, 6);
+  const imageBounds = (await node('image').boundingBox())!,
+    target = (await node('neighbor').boundingBox())!;
+  expect(Math.abs(imageBounds.x + imageBounds.width - target.x)).toBeLessThan(0.1);
+  await page.reload();
+  expect((await snapshot()).find((i) => i.id === 'image')).toEqual(item);
+  await page.screenshot({ path: path.join(folder, 'precise-image-alignment.png') });
+  await node('image').click();
+  await node('image').locator('.react-flow__resize-control.handle.bottom.right').click();
+  await drag('image', -40, 0);
+  await page.keyboard.press('Control+s');
+  expect((await snapshot()).find((i) => i.id === 'image')!.position.x).toBeLessThan(
+    item.position.x,
+  );
 });
 test('edge priority, cyan crosshair, persistent locks, joint motion, undo and unlock', async () => {
   await drag('a', 196, 0, false);

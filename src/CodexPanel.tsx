@@ -36,12 +36,23 @@ export function CodexPanel({ close }: { close: () => void }) {
   const [attachments, setAttachments] = useState<string[]>([]),
     [imagegen, setImagegen] = useState<boolean | null>(null);
   const [queue, setQueue] = useState<Task[]>([]),
-    [paused, setPaused] = useState(false);
+    [pauseReason, setPauseReason] = useState<'failure' | 'manual' | null>(null);
+  const pause = useRef<typeof pauseReason>(null);
+  function setPause(reason: typeof pauseReason) {
+    pause.current = reason;
+    setPauseReason(reason);
+  }
   const [characterId, setCharacterId] = useState('');
+  useEffect(() => {
+    useWorkspace.setState({ codexQueued: queue.length });
+  }, [queue.length]);
+  useEffect(() => () => { useWorkspace.setState({ codexQueued: 0 }); }, []);
   const [dropActive, setDropActive] = useState(false);
   const running = useRef(false),
     starting = useRef(false),
-    completed = useRef(false);
+    completed = useRef(false),
+    recovery = useRef(false),
+    turnFailed = useRef(false);
   const selectedCharacter = project?.library?.characters.find((c) => c.id === characterId);
   const referenceCount = new Set([...attachments, ...(selectedCharacter?.assetIds || [])]).size;
   function attach(ids: string[]) {
@@ -100,9 +111,16 @@ export function CodexPanel({ close }: { close: () => void }) {
         else {
           setStatus(e.text);
           if (e.type === 'done') {
+            if (!running.current) return;
             useWorkspace.setState({ codexBusy: false });
             completed.current = true;
-            if (!/^(completed|complete)$/i.test(e.text)) setPaused(true);
+            if (!/^(completed|complete)$/i.test(e.text)) {
+              turnFailed.current = true;
+              if (pause.current !== 'manual')
+                setPause(/^interrupted$/i.test(e.text) ? 'manual' : 'failure');
+            } else if (recovery.current && !turnFailed.current && pause.current === 'failure') {
+              setPause(null);
+            }
             if (!starting.current) {
               running.current = false;
               setBusy(false);
@@ -111,7 +129,10 @@ export function CodexPanel({ close }: { close: () => void }) {
           }
           if (e.type === 'status' && e.text === 'Signed in.') setSignedIn(true);
           if (e.type === 'error') {
-            setPaused(true);
+            if (running.current) {
+              turnFailed.current = true;
+              if (pause.current !== 'manual') setPause('failure');
+            }
             setMessages((old) => [
               ...old,
               { id: crypto.randomUUID(), role: 'activity', text: e.text },
@@ -137,12 +158,14 @@ export function CodexPanel({ close }: { close: () => void }) {
     setImagegen(a.imageGeneration ?? null);
     setStatus(a.label);
   }
-  async function runTask(task: Task) {
+  async function runTask(task: Task, isRecovery = false) {
     if (running.current || useWorkspace.getState().navigationPending) return;
     running.current = true;
     useWorkspace.setState({ codexBusy: true });
     starting.current = true;
     completed.current = false;
+    recovery.current = isRecovery;
+    turnFailed.current = false;
     setBusy(true);
     nearBottom.current = true;
     setMessages((v) => [...v, { id: task.id, role: 'user', text: task.text, assetIds: task.refs }]);
@@ -154,7 +177,8 @@ export function CodexPanel({ close }: { close: () => void }) {
       });
     } catch (e) {
       setStatus(String(e));
-      setPaused(true);
+      turnFailed.current = true;
+      if (pause.current !== 'manual') setPause('failure');
       completed.current = true;
       setMessages((v) => [
         ...v,
@@ -178,7 +202,7 @@ export function CodexPanel({ close }: { close: () => void }) {
       busy ||
       navigationPending ||
       running.current ||
-      paused ||
+      pauseReason ||
       !signedIn ||
       !queue.length ||
       queue[0].boardId !== board?.id
@@ -187,9 +211,10 @@ export function CodexPanel({ close }: { close: () => void }) {
     const task = queue[0];
     setQueue((v) => v.filter((t) => t.id !== task.id));
     void runTask(task);
-  }, [queue, busy, paused, signedIn, board?.id, navigationPending]);
+  }, [queue, busy, pauseReason, signedIn, board?.id, navigationPending]);
   function send() {
-    if (!board || !prompt.trim() || !signedIn) return;
+    if (!board || !prompt.trim() || !signedIn || useWorkspace.getState().navigationPending) return;
+    const isRecovery = pause.current === 'failure' && !running.current;
     let refs: string[];
     try {
       refs = validateReferenceIds([...attachments, ...(selectedCharacter?.assetIds || [])]);
@@ -202,25 +227,24 @@ export function CodexPanel({ close }: { close: () => void }) {
       (selectedCharacter
         ? `\n\nCharacter reference — ${selectedCharacter.name}:\n${selectedCharacter.description}`
         : '');
-    if (text.length > 30000 || queue.length >= 50) {
+    if (text.length > 30000 || (!isRecovery && queue.length >= 50)) {
       setStatus('Use fewer than 30,000 characters and at most 50 queued tasks.');
       return;
     }
     const rect = document.querySelector('.canvas-wrap')!.getBoundingClientRect();
-    setQueue((v) => [
-      ...v,
-      {
-        id: crypto.randomUUID(),
-        boardId: board.id,
-        boardName: board.name,
-        text,
-        refs,
-        position: flow.screenToFlowPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        }),
-      },
-    ]);
+    const task: Task = {
+      id: crypto.randomUUID(),
+      boardId: board.id,
+      boardName: board.name,
+      text,
+      refs,
+      position: flow.screenToFlowPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      }),
+    };
+    if (isRecovery) void runTask(task, true);
+    else setQueue((v) => [...v, task]);
     setPrompt('');
     setAttachments([]);
     setCharacterId('');
@@ -267,7 +291,7 @@ export function CodexPanel({ close }: { close: () => void }) {
               void action(async () => {
                 await window.imagine.codexNewChat();
                 setMessages([]);
-                setPaused(false);
+                setPause(null);
               })
             }
           >
@@ -388,8 +412,8 @@ export function CodexPanel({ close }: { close: () => void }) {
           <section className="task-queue" aria-label="Queued Codex tasks">
             <div className="folder-row">
               <strong>{queue.length} queued</strong>
-              <button onClick={() => setPaused(!paused)}>
-                {paused ? 'Resume queue' : 'Pause queue'}
+              <button onClick={() => setPause(pauseReason ? null : 'manual')}>
+                {pauseReason ? 'Resume queue' : 'Pause queue'}
               </button>
               <button onClick={() => setQueue([])}>Clear queue</button>
             </div>
@@ -422,6 +446,13 @@ export function CodexPanel({ close }: { close: () => void }) {
               </div>
             ))}
           </section>
+        )}
+        {pauseReason === 'failure' && (
+          <p role="status">
+            {busy && recovery.current && !turnFailed.current
+              ? 'Queue will resume after your reply completes successfully.'
+              : 'Queue paused after a failure. Send a reply to continue; queued tasks resume after it succeeds.'}
+          </p>
         )}
         <div className="chat-status" role="status">
           {status}
@@ -500,7 +531,7 @@ export function CodexPanel({ close }: { close: () => void }) {
             <button
               title="Stop response"
               onClick={() => {
-                setPaused(true);
+                setPause('manual');
                 void action(() => window.imagine.codexStop());
               }}
             >
@@ -511,7 +542,7 @@ export function CodexPanel({ close }: { close: () => void }) {
           <button
             title="Send message"
             aria-label={busy ? 'Queue task' : 'Send'}
-            disabled={!signedIn || !prompt.trim() || !board}
+            disabled={!signedIn || !prompt.trim() || !board || navigationPending}
             onClick={() => void send()}
           >
             <Send size={16} />
