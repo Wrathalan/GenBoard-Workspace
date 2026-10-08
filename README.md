@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave.Setup.0.4.1.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave.Setup.0.4.2.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 ### In-app updates
 
@@ -100,6 +100,12 @@ Wait for **Saved locally** before closing or refreshing a tab. The browser warns
 Weave uses the approved flame icon throughout the desktop app, browser tab, and Windows installer. `resources/app-icon-source.png` is the source artwork; `scripts/build-icons.mjs` regenerates the PNG and multi-size ICO assets during each build.
 
 The installer retains the existing `local.imagine.workspace` identity, and the app continues using `%APPDATA%/local-imagine-workspace` for preferences and Codex sign-in. Project folders, internal protocols, and saved setting keys remain compatible with previous versions.
+
+## Reference tray
+
+The floating **References** tray sits at the top left inside the workspace viewport and stays fixed as you pan or zoom. It stores images separately from canvas cards, keeping the board layout clear. **Character** is the first and default tab, followed by **Attire** and **Environment**.
+
+Choose **Import**, drop PNG/JPEG/WebP files or reference thumbnails into the active tab, or select canvas images and choose **Add selected**. Click a thumbnail to preview it, drag it into Codex to attach it to a request, or use its X to remove it from that tab. Removing a reference keeps the source image. Each board saves its own reference categories. Click the References heading to collapse the tray. Safe canvas screenshots exclude it.
 
 ## On-board folders
 

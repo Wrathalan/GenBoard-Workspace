@@ -13,6 +13,7 @@ test.beforeEach(async () => {
   page = await app.firstWindow();
   await page.waitForFunction(() => !!window.imagine);
   await app.evaluate(async (_, folder) => (globalThis as any).imagineTest.openProject(folder, true), folder);
+  await page.evaluate(() => localStorage.setItem('imagine.referenceTrayCollapsed', 'true'));
   await page.reload();
   await page.getByRole('button', { name: 'Text card', exact: true }).waitFor();
   if (await page.getByRole('complementary', { name: 'Codex agent panel' }).isVisible())

@@ -29,6 +29,7 @@ test.beforeEach(async () => {
     folder,
   );
   await page.evaluate(() => localStorage.setItem('imagine.chatOpen', 'true'));
+  await page.evaluate(() => localStorage.setItem('imagine.referenceTrayCollapsed', 'true'));
   await page.reload();
 });
 test.afterEach(async () => {

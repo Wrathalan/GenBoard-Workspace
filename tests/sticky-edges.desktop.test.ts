@@ -29,6 +29,7 @@ async function launch(create: boolean) {
     localStorage.setItem('imagine.snapGrid', 'true');
     localStorage.setItem('imagine.snapAlignment', 'true');
   });
+  await page.evaluate(() => localStorage.setItem('imagine.referenceTrayCollapsed', 'true'));
   await page.reload();
 }
 const snapshot = () =>

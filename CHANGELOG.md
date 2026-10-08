@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.2 — 2026-10-08
+
+### Reference tray
+
+- Add a floating reference tray at the top left inside the workspace viewport, keeping references separate from board items and fixed while panning or zooming.
+- Organize references in Character, Attire, and Environment tabs, with Character selected first.
+- Import or drop images into each tab, or copy selected board images with Add selected. Preview images, drag them into Codex, and remove references without deleting their source images.
+- Save each board's reference categories with the project, remember the tray's collapsed state, and keep it out of safe canvas screenshots.
+- Support keyboard navigation between reference tabs and prevent tray interactions from triggering canvas shortcuts.
+
 ## 0.4.1 — 2026-10-07
 
 ### GitHub updates in the top bar

@@ -33,6 +33,7 @@ try {
     async (_electron, folder) => globalThis.imagineTest.openProject(folder, true),
     folder,
   );
+  await page.evaluate(() => localStorage.setItem('imagine.referenceTrayCollapsed', 'true'));
   await page.reload();
   await page.getByRole('button', { name: 'Text card', exact: true }).click();
   await page.locator('.text-node').dblclick();

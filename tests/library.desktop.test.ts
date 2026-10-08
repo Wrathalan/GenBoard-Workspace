@@ -26,6 +26,7 @@ test.beforeEach(async () => {
     folder,
   );
   await page.evaluate(() => localStorage.setItem('imagine.chatOpen', 'true'));
+  await page.evaluate(() => localStorage.setItem('imagine.referenceTrayCollapsed', 'true'));
   await page.reload();
   await expect(page.getByLabel('Codex request')).toBeVisible();
   const bytes = await sharp({

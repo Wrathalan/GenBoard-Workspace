@@ -43,6 +43,7 @@ test.beforeEach(async () => {
     async (_, folder) => (globalThis as any).imagineTest.openProject(folder, true),
     folder,
   );
+  await page.evaluate(() => localStorage.setItem('imagine.referenceTrayCollapsed', 'true'));
   await page.reload();
   await page.getByRole('button', { name: 'Workspace browser', exact: true }).click();
   await page.getByLabel('Website address').fill(url);

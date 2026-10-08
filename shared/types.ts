@@ -22,7 +22,14 @@ export type CanvasItem = {
   data: ItemData;
   parentId?: string;
 };
-export type Board = { id: string; name: string; items: CanvasItem[]; viewport: Viewport };
+export type ReferenceCategory = 'character' | 'attire' | 'environment';
+export type Board = {
+  id: string;
+  name: string;
+  items: CanvasItem[];
+  viewport: Viewport;
+  references?: Partial<Record<ReferenceCategory, string[]>>;
+};
 export type Asset = {
   id: string;
   name: string;

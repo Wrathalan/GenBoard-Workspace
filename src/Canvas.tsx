@@ -30,6 +30,7 @@ import { snapResize, type ResizeBox } from '../shared/resize-snapping';
 import { dropIntoGroup } from '../shared/group-drop';
 import { ATTACH_REFERENCES, readReferences, referenceIds, writeReferences } from './references';
 import { BrowserDrag } from './BrowserDrag';
+import { ReferenceTray } from './ReferenceTray';
 type CanvasNode = Node<ItemData, 'image' | 'text' | 'group' | 'job' | 'spoiler'>;
 export const assetUrl = (id: string, original = false) =>
   window.location.protocol === 'file:'
@@ -453,6 +454,7 @@ export function Canvas({
       aria-labelledby={board ? `board-tab-${board.id}` : undefined}
       tabIndex={-1}
       onPointerDownCapture={(e) => {
+        if ((e.target as HTMLElement).closest('.reference-tray')) return;
         const control = (e.target as HTMLElement).closest('.react-flow__resize-control');
         if (e.button === 0 && control) {
           const id = control.closest<HTMLElement>('.react-flow__node')?.dataset.id;
@@ -528,6 +530,7 @@ export function Canvas({
       }}
       onContextMenu={(e) => contextEvent(e)}
       onKeyDownCapture={(e) => {
+        if ((e.target as HTMLElement).closest('.reference-tray')) return;
         if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]'))
           return;
         if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return;
@@ -605,6 +608,7 @@ export function Canvas({
       </ReactFlow>
       {board && (
         <>
+          <ReferenceTray key={board.id} inspect={inspect} />
           <div className="spoiler-controls">
             <button
               aria-pressed={revealed}

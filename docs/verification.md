@@ -1,3 +1,13 @@
+# Weave 0.4.2 release verification — 2026-10-08
+
+Version metadata, changelog, README, and `docs/releases/0.4.2.md` are aligned for this patch. The reference tray is anchored at the top left inside the workspace viewport, separate from board nodes, with Character, Attire, and Environment categories saved per board. It supports import/drop, copying selected images, previews, removal, Codex reference drags, keyboard tab navigation, remembered collapse state, and exclusion from safe screenshots.
+
+All 75 unit tests, all 40 desktop scenarios, browser integration, and the packaged application smoke test passed. The new tray scenario verifies default tab order, independent category persistence across reloads, removal without changing another category, zero added canvas items, fixed viewport placement during pan, and remembered collapse state. Existing board tests explicitly collapse the overlay before interacting with cards beneath it. The tray screenshot was visually inspected; regression-generated documentation screenshots were restored.
+
+Built `Weave.Setup.0.4.2.exe` (135,280,734 bytes), with Windows file metadata reporting 0.4.2. SHA-256: `ff58797d20bc9c909111243f128ccafa08c08252af08c8f7a00e8ffbffdc918e`. The generated `latest.yml` SHA-512 and size match the installer; its blockmap and `SHA256SUMS.txt` are present. Packaged launch, native SQLite/Sharp, persistence, canvas interactions, themes, sensitive screenshots, and clean shutdown passed; `docs/packaged-smoke.json` records those checks.
+
+The release is prepared as a draft for separate publication. A real installed-version update and authenticated live image generation were not exercised. The installer remains unsigned; Vite retains its existing bundle-size advisory.
+
 # Weave 0.4.1 release verification — 2026-10-07
 
 Version metadata, changelog, usage notes, and `docs/releases/0.4.1.md` are aligned for the patch release. The source includes the GitHub updater, precise alignment/resizing, cross-board clipboard, queue recovery, on-board folders, and Send to menus.

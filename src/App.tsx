@@ -357,7 +357,7 @@ export function App() {
       if (
         document.querySelector('[role="menu"], .board-switcher-menu, dialog[open], .capturing') ||
         useWorkspace.getState().navigationPending ||
-        (e.target as HTMLElement).closest('.codex-panel')
+        (e.target as HTMLElement).closest('.codex-panel, .reference-tray')
       )
         return;
       if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable=true]'))

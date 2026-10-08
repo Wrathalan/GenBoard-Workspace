@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { sensitiveIds } from '../shared/spoilers';
 import { boardName } from '../shared/board-navigation';
 import { folderContents, toggleFolder } from '../shared/board-folders';
-import type { Asset, Board, CanvasItem, Project, Viewport, WorkspaceAPI } from '../shared/types';
+import type { Asset, Board, CanvasItem, Project, ReferenceCategory, Viewport, WorkspaceAPI } from '../shared/types';
 import { absolutePosition, duplicateItems, History } from '../shared/board';
 declare global {
   interface Window {
@@ -36,6 +36,8 @@ type State = {
   checkpoint: () => void;
   viewport: (v: Viewport) => void;
   addAssets: (assets: Asset[], position: { x: number; y: number }) => void;
+  addReferences: (category: ReferenceCategory, assets: Asset[]) => void;
+  removeReference: (category: ReferenceCategory, id: string) => void;
   undo: () => void;
   redo: () => void;
   remove: () => void;
@@ -151,6 +153,23 @@ export const useWorkspace = create<State>((set, get) => ({
     }));
     set({ project: { ...s.project, assets: all }, selected: added.map((i) => i.id) });
     get().change([...s.board.items, ...added]);
+  },
+  addReferences: (category, assets) => {
+    const { board, project } = get();
+    if (!board || !project || !assets.length) return;
+    set({
+      project: { ...project, assets: [...new Map([...project.assets, ...assets].map((a) => [a.id, a])).values()] },
+      board: { ...board, references: { ...board.references,
+        [category]: [...new Set([...(board.references?.[category] || []), ...assets.map((a) => a.id)])] } },
+    });
+    scheduleSave();
+  },
+  removeReference: (category, id) => {
+    const board = get().board;
+    if (!board) return;
+    set({ board: { ...board, references: { ...board.references,
+      [category]: (board.references?.[category] || []).filter((a) => a !== id) } } });
+    scheduleSave();
   },
   undo: () => {
     const b = get().board;

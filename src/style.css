@@ -348,6 +348,35 @@ p {
   position: absolute;
   inset: 43px 0 0;
 }
+.reference-tray {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 6;
+  width: 296px;
+  max-width: calc(100% - 24px);
+  background: var(--color-panel, #222);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px #0004;
+  overflow: hidden;
+}
+.reference-tray-hover { border-color: var(--color-accent); }
+.reference-tray-header { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px 5px 4px; }
+.reference-tray-header button { display: flex; align-items: center; gap: 6px; padding: 5px; font-size: 11px; }
+.reference-tray-header small { color: var(--color-muted); font-size: 10px; }
+.reference-tray-tabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--color-border); }
+.reference-tray-tabs button { flex: 1; padding: 8px 2px; font-size: 11px; border-radius: 0; border-bottom: 2px solid transparent; }
+.reference-tray-tabs button[aria-selected='true'] { border-bottom-color: var(--color-accent); background: var(--color-surface); }
+.reference-tray-images { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 10px; max-height: min(240px, 35vh); overflow-y: auto; }
+.reference-tray-images p { grid-column: 1 / -1; text-align: center; color: var(--color-muted); margin: 12px 0; font-size: 11px; }
+.reference-tray-image { position: relative; aspect-ratio: 1; min-width: 0; }
+.reference-tray-preview { width: 100%; height: 100%; padding: 0; overflow: hidden; cursor: grab; }
+.reference-tray-preview img { width: 100%; height: 100%; object-fit: contain; }
+.reference-tray-remove { position: absolute; top: 2px; right: 2px; padding: 3px; background: var(--color-panel); border-radius: 4px; }
+.reference-tray-actions { display: flex; gap: 6px; padding: 0 10px 10px; }
+.reference-tray-actions button { display: flex; align-items: center; justify-content: center; gap: 5px; flex: 1; padding: 6px; font-size: 10px; border: 1px solid var(--color-border); }
+.canvas-wrap.capturing .reference-tray { visibility: hidden !important; }
 .app-shell { --browser-width: 50%; }
 .browser-open .canvas-wrap { right: var(--browser-width); }
 .browser-open .toolbar { left: calc((100% - var(--browser-width)) / 2); max-width: calc(100% - var(--browser-width) - 24px); overflow-x: auto; }
