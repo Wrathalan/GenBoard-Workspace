@@ -26,6 +26,7 @@ import { validateReferenceIds } from '../shared/image-references';
 import type { Asset, Board, GenerateRequest, Template } from '../shared/types';
 import { CodexHarness } from './codex';
 import { assetDragItem, copyAssetImage, exportAsset, revealAsset } from './asset-actions';
+import { importBrowserProfile } from './browser-import';
 import { EmbeddedBrowser } from './embedded-browser';
 import { autoUpdater } from 'electron-updater';
 import { AppUpdateService } from './app-update';
@@ -244,6 +245,31 @@ app
     win.webContents.on('will-navigate', (event) => event.preventDefault());
     if (!browserMode) {
       embeddedBrowser = new EmbeddedBrowser(win, (state) => send('browser:state', state));
+      const importedPath = path.join(process.env.IMAGINE_TEST === '1' ? path.resolve('.test-data', 'preferences') : app.getPath('userData'), 'browser-imports.json');
+      const readImported = async (): Promise<import('../shared/embedded-browser').BrowserEntry[]> => {
+        try { return JSON.parse(await fs.promises.readFile(importedPath, 'utf8')); }
+        catch { return []; }
+      };
+      handle('browser:entries', readImported);
+      handle('browser:import', async (source: 'chrome' | 'firefox') => {
+        if (!['chrome', 'firefox'].includes(source)) throw new Error('Choose Chrome or Firefox.');
+        const chosen = await dialog.showOpenDialog(win, {
+          title: `Import ${source === 'chrome' ? 'Chrome' : 'Firefox'} bookmarks and history — select a profile folder`,
+          defaultPath: source === 'chrome'
+            ? path.join(app.getPath('appData'), '..', 'Local', 'Google', 'Chrome', 'User Data')
+            : path.join(app.getPath('appData'), 'Mozilla', 'Firefox', 'Profiles'),
+          properties: ['openDirectory'],
+        });
+        if (chosen.canceled || !chosen.filePaths[0]) return null;
+        const result = await importBrowserProfile(chosen.filePaths[0], source);
+        const merged = new Map((await readImported()).map((entry) => [`${entry.kind}:${entry.url}`, entry]));
+        result.entries.forEach((entry) => merged.set(`${entry.kind}:${entry.url}`, entry));
+        result.entries = [...merged.values()].slice(-8000);
+        await fs.promises.mkdir(path.dirname(importedPath), { recursive: true });
+        await fs.promises.writeFile(importedPath + '.tmp', JSON.stringify(result.entries), 'utf8');
+        await fs.promises.rename(importedPath + '.tmp', importedPath);
+        return result;
+      });
       handle('browser:state', () => embeddedBrowser!.state());
       handle('browser:navigate', (url: string) => embeddedBrowser!.navigate(url));
       handle('browser:command', (command: 'back' | 'forward' | 'reload' | 'stop') =>
@@ -346,6 +372,9 @@ app
     handle('project:open-recent', (id: string) => openProject(recentProjects().resolve(id), false));
     handle('project:forget-recent', (id: string) => recentProjects().remove(id));
     handle('project:current', () => store?.snapshot() || null);
+    handle('references:save', (references: import('../shared/types').ReferenceObject[]) => {
+      requireStore().saveReferences(references);
+    });
     handle('library:save', (library: import('../shared/types').Library) => {
       requireStore().saveLibrary(library);
       emit();
@@ -355,6 +384,7 @@ app
       emit();
     });
     handle('board:create', (name: string) => requireStore().createBoard(name));
+    handle('board:reorder', (ids: string[]) => requireStore().reorderBoards(ids));
     handle('board:create-and-activate', (name: string) => {
       if (codex.busy) throw new Error(BOARD_SWITCH_BLOCKED);
       return requireStore().createAndActivateBoard(boardName(name));

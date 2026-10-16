@@ -5,6 +5,7 @@ import { flush, useWorkspace } from './store';
 import { assetUrl } from './Canvas';
 import { ATTACH_REFERENCES, REFERENCE_MIME, readReferences, referenceIds } from './references';
 import { MAX_IMAGE_REFERENCES, validateReferenceIds } from '../shared/image-references';
+import type { CodexEvent } from '../shared/codex';
 
 type Task = {
   id: string;
@@ -26,10 +27,39 @@ export function CodexPanel({ close }: { close: () => void }) {
     selected = useWorkspace((s) => s.selected);
   const navigationPending = useWorkspace((s) => s.navigationPending);
   const flow = useReactFlow();
+  const [replyReady, setReplyReady] = useState(false);
+  const [timing, setTiming] = useState<Extract<CodexEvent, { type: 'timing' }> | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const pendingText = useRef(new Map<string, string>());
+  const textTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flushText() {
+    if (textTimer.current) clearTimeout(textTimer.current);
+    textTimer.current = null;
+    const updates = [...pendingText.current];
+    pendingText.current.clear();
+    if (!updates.length) return;
+    setMessages((old) => {
+      const next = [...old];
+      for (const [id, text] of updates) {
+        const index = next.findIndex((m) => m.id === id);
+        if (index < 0) next.push({ id, role: 'assistant', text });
+        else next[index] = { ...next[index], text: next[index].text + text };
+      }
+      return next;
+    });
+  }
+  useEffect(() => () => { if (textTimer.current) clearTimeout(textTimer.current); }, []);
   const [status, setStatus] = useState('Connect or sign in to start chatting.');
   const [signedIn, setSignedIn] = useState(false),
     [busy, setBusy] = useState(false),
     [connecting, setConnecting] = useState(false);
+  useEffect(() => {
+    if (!busy) return;
+    const started = Date.now();
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
   const [settings, setSettings] = useState(false),
     [prompt, setPrompt] = useState(''),
     [messages, setMessages] = useState<Message[]>([]);
@@ -74,6 +104,8 @@ export function CodexPanel({ close }: { close: () => void }) {
     nearBottom = useRef(true),
     composer = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
+    pendingText.current.clear();
+    setReplyReady(false);
     setMessages([]);
     setAttachments([]);
     setCharacterId('');
@@ -85,15 +117,15 @@ export function CodexPanel({ close }: { close: () => void }) {
     () =>
       window.imagine.onCodexEvent((e) => {
         if (e.type === 'busy') return;
-        if (e.type === 'text')
-          setMessages((old) => {
-            const id = e.itemId || 'response';
-            const found = old.find((m) => m.id === id);
-            return found
-              ? old.map((m) => (m.id === id ? { ...m, text: m.text + e.text } : m))
-              : [...old, { id, role: 'assistant', text: e.text }];
-          });
-        else if (e.type === 'image' && e.assetId)
+        if (e.type === 'timing') { setTiming(e); return; }
+        if (e.type === 'text') {
+          const id = e.itemId || 'response';
+          pendingText.current.set(id, (pendingText.current.get(id) || '') + e.text);
+          if (!textTimer.current) textTimer.current = setTimeout(flushText, 80);
+          return;
+        }
+        flushText();
+        if (e.type === 'image' && e.assetId)
           setMessages((old) => [
             ...old,
             {
@@ -111,6 +143,7 @@ export function CodexPanel({ close }: { close: () => void }) {
         else {
           setStatus(e.text);
           if (e.type === 'done') {
+            setReplyReady(true);
             if (!running.current) return;
             useWorkspace.setState({ codexBusy: false });
             completed.current = true;
@@ -127,7 +160,10 @@ export function CodexPanel({ close }: { close: () => void }) {
             }
             composer.current?.focus();
           }
-          if (e.type === 'status' && e.text === 'Signed in.') setSignedIn(true);
+          if (e.type === 'status' && e.text === 'Signed in.') {
+            setSignedIn(true);
+            void refresh().catch((error) => setStatus(String(error)));
+          }
           if (e.type === 'error') {
             if (running.current) {
               turnFailed.current = true;
@@ -155,7 +191,7 @@ export function CodexPanel({ close }: { close: () => void }) {
   async function refresh() {
     const a = await window.imagine.codexStatus();
     setSignedIn(a.signedIn);
-    setImagegen(a.imageGeneration ?? null);
+    setImagegen(a.signedIn ? (a.imageGeneration ?? null) : null);
     setStatus(a.label);
   }
   async function runTask(task: Task, isRecovery = false) {
@@ -166,6 +202,9 @@ export function CodexPanel({ close }: { close: () => void }) {
     completed.current = false;
     recovery.current = isRecovery;
     turnFailed.current = false;
+    setReplyReady(false);
+    setTiming(null);
+    setStatus('Saving workspace...');
     setBusy(true);
     nearBottom.current = true;
     setMessages((v) => [...v, { id: task.id, role: 'user', text: task.text, assetIds: task.refs }]);
@@ -251,7 +290,7 @@ export function CodexPanel({ close }: { close: () => void }) {
   }
   return (
     <aside
-      className={`codex-panel${dropActive ? ' reference-drop-active' : ''}`}
+      className={`codex-panel${busy ? ' waiting-response' : replyReady ? ' reply-ready' : ''}${dropActive ? ' reference-drop-active' : ''}`}
       aria-label="Codex agent panel"
       onDragOver={(e) => {
         e.preventDefault();
@@ -281,7 +320,7 @@ export function CodexPanel({ close }: { close: () => void }) {
       }}
     >
       <header className="chat-header">
-        <strong>Codex</strong>
+        <strong>Codex {busy ? <small role="status">— Waiting for response</small> : replyReady ? <small role="status">— Your turn</small> : null}</strong>
         <div>
           <button
             title="New chat"
@@ -291,6 +330,7 @@ export function CodexPanel({ close }: { close: () => void }) {
               void action(async () => {
                 await window.imagine.codexNewChat();
                 setMessages([]);
+                setReplyReady(false);
                 setPause(null);
               })
             }
@@ -321,6 +361,7 @@ export function CodexPanel({ close }: { close: () => void }) {
                 void action(async () => {
                   await window.imagine.codexLogout();
                   setSignedIn(false);
+                  setImagegen(null);
                 })
               }
             >
@@ -340,7 +381,7 @@ export function CodexPanel({ close }: { close: () => void }) {
           <p>
             Imagegen:{' '}
             {imagegen === true
-              ? 'Available'
+              ? 'Supported by this provider'
               : imagegen === false
                 ? 'Unavailable from this provider'
                 : 'Check with Connect / refresh'}
@@ -405,7 +446,12 @@ export function CodexPanel({ close }: { close: () => void }) {
             ))}
           </article>
         ))}
-        {busy && <div className="chat-thinking">Codex is working...</div>}
+        {busy && <div className="chat-thinking" role="status">{status} · {elapsed}s elapsed</div>}
+        {timing && <small className="chat-timing" aria-label="Response timing">
+          Setup {(timing.setupMs / 1000).toFixed(1)}s
+          {timing.firstActivityMs !== undefined && ` · First activity ${(timing.firstActivityMs / 1000).toFixed(1)}s`}
+          {timing.totalMs !== undefined && ` · Total ${(timing.totalMs / 1000).toFixed(1)}s`}
+        </small>}
       </div>
       <footer className="chat-composer">
         {queue.length > 0 && (
@@ -549,7 +595,14 @@ export function CodexPanel({ close }: { close: () => void }) {
             {busy && 'Queue'}
           </button>
         </div>
-        <small>Imagegen is online. Use “ComfyUI” for local generation.</small>
+        <small aria-label="Imagegen availability">
+          {imagegen === true
+            ? 'Imagegen is supported by this provider.'
+            : imagegen === false
+              ? 'Imagegen is unavailable from this provider.'
+              : 'Imagegen availability has not been confirmed. Check Connect / refresh.'}{' '}
+          Use “ComfyUI” for local generation.
+        </small>
       </footer>
     </aside>
   );

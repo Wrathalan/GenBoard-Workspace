@@ -9,6 +9,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { DatabaseSync } from 'node:sqlite';
 
 let app: ElectronApplication, page: Page, server: http.Server, url: string, folder: string;
 test.beforeEach(async () => {
@@ -71,6 +72,103 @@ async function guest() {
     .pages()
     .find((p) => p.url().startsWith(url))!;
 }
+
+test('panel widths persist, browser bounds follow resizing, and replies show attention', async () => {
+  if (!(await page.getByLabel('Codex agent panel', { exact: true }).isVisible()))
+    await page.getByRole('button', { name: 'Codex workspace agent', exact: true }).click();
+  const handle = page.getByRole('separator', { name: 'Resize Codex panel' });
+  await handle.focus();
+  const before = Number(await handle.getAttribute('aria-valuenow'));
+  await page.keyboard.press('ArrowRight');
+  await expect(handle).toHaveAttribute('aria-valuenow', String(before + 20));
+  const browserHandle = page.getByRole('separator', { name: 'Resize browser panel' });
+  const drag = (await browserHandle.boundingBox())!;
+  const browserBefore = Number(await browserHandle.getAttribute('aria-valuenow'));
+  await page.mouse.move(drag.x + drag.width / 2, drag.y + drag.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(drag.x + drag.width / 2 + 30, drag.y + drag.height / 2, { steps: 6 });
+  await page.mouse.up();
+  expect(Number(await browserHandle.getAttribute('aria-valuenow'))).toBeLessThan(browserBefore);
+  await browserHandle.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => {
+    const expected = await page.locator('.browser-surface').boundingBox();
+    const actual = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].contentView.children[0].getBounds());
+    return Math.abs(expected!.width - actual.width) + Math.abs(expected!.x - actual.x);
+  }).toBeLessThan(3);
+  const saved = await handle.getAttribute('aria-valuenow');
+  await page.reload();
+  await expect(handle).toHaveAttribute('aria-valuenow', saved!);
+  await app.evaluate(() => {
+    const harness = (globalThis as any).imagineTest.getCodex();
+    harness.status = async () => ({ signedIn: true, label: 'Test account' });
+    harness.run = async () => {};
+  });
+  await page.getByRole('button', { name: 'Connect / refresh', exact: true }).click();
+  const panel = page.getByLabel('Codex agent panel', { exact: true });
+  const normalColor = await panel.evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page.getByRole('textbox', { name: 'Codex request' }).fill('Test waiting state');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(panel).toHaveClass(/waiting-response/);
+  expect(await panel.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(normalColor);
+  await app.evaluate(({ BrowserWindow }) => {
+    const wc = BrowserWindow.getAllWindows()[0].webContents;
+    wc.send('codex:event', { type: 'status', text: 'Codex is thinking...' });
+    wc.send('codex:event', { type: 'timing', text: '', setupMs: 120, firstActivityMs: 750 });
+  });
+  await expect(page.locator('.chat-thinking')).toContainText('Codex is thinking...');
+  await expect(page.getByLabel('Response timing')).toContainText('Setup 0.1s · First activity 0.8s');
+  await app.evaluate(({ BrowserWindow }) => {
+    const wc = BrowserWindow.getAllWindows()[0].webContents;
+    for (let i = 0; i < 150; i++) wc.send('codex:event', { type: 'text', itemId: 'stream-test', text: 'x' });
+    wc.send('codex:event', { type: 'done', text: 'Completed' });
+  });
+  await expect(page.getByLabel('Codex message', { exact: true })).toContainText('x'.repeat(150));
+  await expect(page.getByLabel('Codex agent panel', { exact: true })).toHaveClass(/reply-ready/);
+  await expect(page.getByText('— Your turn', { exact: true })).toBeVisible();
+  await page.screenshot({ path: '.test-data/qol-panels.png' });
+});
+
+test('imports Chrome bookmarks and persists them without navigating automatically', async () => {
+  const profile = path.join(folder, 'chrome-profile');
+  await fs.mkdir(profile);
+  await fs.writeFile(path.join(profile, 'Bookmarks'), JSON.stringify({ roots: { bookmark_bar: { children: [
+    { type: 'url', name: 'Imported fixture', url: url + 'imported' },
+    { type: 'url', name: 'Unsafe', url: 'file:///C:/private.txt' },
+  ] } } }));
+  const history = new DatabaseSync(path.join(profile, 'History'));
+  history.exec('CREATE TABLE urls (url TEXT, title TEXT, last_visit_time INTEGER)');
+  history.prepare('INSERT INTO urls VALUES (?, ?, ?)').run(url + 'history', 'Chrome history fixture', 1);
+  history.close();
+  await app.evaluate(({ dialog }, profile) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [profile] })) as any;
+  }, profile);
+  await page.getByRole('button', { name: 'Import Chrome', exact: true }).click();
+  await expect(page.getByLabel('Imported bookmarks and history')).toContainText('Imported fixture');
+  await expect(page.getByLabel('Imported bookmarks and history')).toContainText('Chrome history fixture');
+  expect((await guest()).url()).toBe(url);
+  await page.getByLabel('Imported bookmarks and history').selectOption(url + 'imported');
+  await expect(page.getByLabel('Website address')).toHaveValue(url + 'imported');
+  await page.getByLabel('Close browser', { exact: true }).click();
+  await page.getByRole('button', { name: 'Workspace browser', exact: true }).click();
+  await expect(page.getByLabel('Imported bookmarks and history')).toContainText('Imported fixture');
+});
+
+test('imports Firefox bookmarks and history from places.sqlite', async () => {
+  const profile = path.join(folder, 'firefox-profile');
+  await fs.mkdir(profile);
+  const places = new DatabaseSync(path.join(profile, 'places.sqlite'));
+  places.exec('CREATE TABLE moz_places (id INTEGER, url TEXT, title TEXT, last_visit_date INTEGER); CREATE TABLE moz_bookmarks (fk INTEGER, title TEXT, type INTEGER)');
+  places.prepare('INSERT INTO moz_places VALUES (?, ?, ?, ?)').run(1, url + 'firefox', 'Firefox history fixture', 1);
+  places.prepare('INSERT INTO moz_bookmarks VALUES (?, ?, ?)').run(1, 'Firefox bookmark fixture', 1);
+  places.close();
+  await app.evaluate(({ dialog }, profile) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [profile] })) as any;
+  }, profile);
+  await page.getByRole('button', { name: 'Import Firefox', exact: true }).click();
+  await expect(page.getByLabel('Imported bookmarks and history')).toContainText('Firefox bookmark fixture');
+  await expect(page.getByLabel('Imported bookmarks and history')).toContainText('Firefox history fixture');
+});
 
 test('browser navigation, session isolation, layout, modal visibility, and reopen', async () => {
   const browser = await guest();

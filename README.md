@@ -10,7 +10,7 @@ A standalone Windows desktop canvas for local images, notes, reference groups, a
 
 [Download the Windows x64 installer](https://github.com/Wrathalan/GenBoard-Workspace/releases/latest). Download the `.exe` asset, run it, and choose an installation folder. Releases include a SHA-256 checksum file for download verification. The installer is unsigned, so Windows may display an unrecognized-app warning.
 
-Building locally writes the installer to `release/Weave.Setup.0.4.2.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
+Building locally writes the installer to `release/Weave.Setup.0.4.3.exe`. The unpacked application is `release/win-unpacked/Weave.exe`.
 
 ### In-app updates
 
@@ -75,6 +75,12 @@ Right-click an image for full-resolution viewing, reference assignment, clipboar
 
 In the desktop app, click the **Workspace browser** globe in the top bar to open a website beside the canvas. Enter its address and use Back, Forward, or Reload as needed. Closing the panel keeps the page available for reopening; website sign-ins are stored separately from the workspace.
 
+Drag the inside edge of the Codex or browser panel to resize it. Widths are saved on this computer; the focused divider also supports Left/Right arrow keys. Codex uses a complementary accent tint while waiting for its response and a stronger tint with **Your turn** when a reply is ready. Streamed responses update in batches to reduce chat rendering overhead.
+
+Codex requests show preparation, connection, thinking, image generation, and history compaction stages when reported by the server. A timing line separates local setup from time to first Codex activity and total turn duration. Sending a request skips optional image-provider discovery; **Connect / refresh** still checks support, with a three-second limit for that optional check. This reduces app-side startup delays without changing the model, reasoning effort, or conversation history.
+
+Use **Import Chrome** or **Import Firefox** in the browser panel and select a profile folder (Chrome: `User Data/Default` or `Profile N`; Firefox: a folder inside `Mozilla/Firefox/Profiles` containing `places.sqlite`). Weave imports up to 2,000 bookmarks and 2,000 recent history entries per import, merges duplicates, and saves them locally for the **Bookmarks and history** menu. Close the source browser first if its history database is locked. Passwords, cookies, signed-in sessions, extensions, and settings are not imported. Sign in to websites inside Weave separately.
+
 Drag the **globe handle** on a canvas image or library thumbnail onto a website's attachment area. To attach several images, select their library checkboxes and drag a selected thumbnail's globe handle. The website receives the original image files. Existing thumbnail and arrow-handle drags still work for organizing references and attaching them to Codex.
 
 Websites use the internet, and dropping files shares those files with the destination website. The site must support file drops; its file-type and attachment limits still apply. Some sites restrict sign-in from embedded browsers. This built-in panel is available in the desktop application.
@@ -105,7 +111,9 @@ The installer retains the existing `local.imagine.workspace` identity, and the a
 
 The floating **References** tray sits at the top left inside the workspace viewport and stays fixed as you pan or zoom. It stores images separately from canvas cards, keeping the board layout clear. **Character** is the first and default tab, followed by **Attire** and **Environment**.
 
-Choose **Import**, drop PNG/JPEG/WebP files or reference thumbnails into the active tab, or select canvas images and choose **Add selected**. Click a thumbnail to preview it, drag it into Codex to attach it to a request, or use its X to remove it from that tab. Removing a reference keeps the source image. Each board saves its own reference categories. Click the References heading to collapse the tray. Safe canvas screenshots exclude it.
+References appear as a spacious list of objects with previews, names, image dimensions, and details. Choose **Edit details** to name an object and save notes about identity, clothing, materials, or setting. The collection is shared by every board in the project, and the selected category stays open when switching boards. Existing per-board references are combined automatically when opening an older project.
+
+Choose **Import**, drop PNG/JPEG/WebP files or reference thumbnails into the active tab, or select canvas images and choose **Add selected**. Click a thumbnail to preview it, drag it into Codex to attach it to a request, or use its X to remove it from that tab. Removing a reference keeps the source image. Click the References heading to collapse the tray. Safe canvas screenshots exclude it.
 
 ## On-board folders
 
@@ -116,6 +124,8 @@ Use **Send to folder…** in the card context menu to search existing folders an
 Collapsed folders show a compact card and item count. Their contents stay saved with their layout but are removed from canvas rendering, selection, and snapping, reducing visible canvas work on large boards. Nested folders keep their own collapsed state. Folder changes support undo/redo, duplication, and copy/paste across boards.
 
 ## Board navigation
+
+Board tabs use a pill style and keep a fixed order through saves, renames, switching, and project reopening. New boards append at the end. Click **Manually reorder tabs** (the grip icon) to enable dragging or Alt+Left/Right on a focused tab; click the checkmark or press Escape in the tab strip to finish. Each move is saved in the project.
 
 Click a board tab in the top bar to switch boards. The active tab is highlighted, and the strip scrolls horizontally when needed. With a tab focused, Left/Right or Home/End moves focus; Enter or Space switches to that board.
 

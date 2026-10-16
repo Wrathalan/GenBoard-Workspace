@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Globe, RotateCw, X } from 'lucide-react';
-import type { EmbeddedBrowserState } from '../shared/embedded-browser';
+import type { EmbeddedBrowserState, BrowserEntry } from '../shared/embedded-browser';
 
 export function BrowserPanel({ close }: { close: () => void }) {
   const [state, setState] = useState<EmbeddedBrowserState>({
@@ -11,6 +11,18 @@ export function BrowserPanel({ close }: { close: () => void }) {
     canGoForward: false,
     error: '',
   });
+  const [entries, setEntries] = useState<BrowserEntry[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState('');
+  useEffect(() => { void window.imagine.browserEntries().then(setEntries).catch((e) => setError(String(e))); }, []);
+  const importData = async (source: 'chrome' | 'firefox') => {
+    setImporting(true); setError('');
+    try {
+      const result = await window.imagine.browserImport(source);
+      if (result) { setEntries(result.entries); setImportNote(`${result.entries.length} saved bookmarks and history entries. ${result.warnings.join(' ')}`); }
+    } catch (e) { setError(String(e)); }
+    finally { setImporting(false); }
+  };
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const surface = useRef<HTMLDivElement>(null);
@@ -129,6 +141,17 @@ export function BrowserPanel({ close }: { close: () => void }) {
         />
         <button type="submit">Go</button>
       </form>
+      <div className="browser-import">
+        <button disabled={importing} onClick={() => void importData('chrome')}>Import Chrome</button>
+        <button disabled={importing} onClick={() => void importData('firefox')}>Import Firefox</button>
+        {entries.length > 0 && <select aria-label="Imported bookmarks and history" value="" onChange={(e) => {
+          if (e.target.value) void window.imagine.browserNavigate(e.target.value).catch((e) => setError(String(e)));
+        }}>
+          <option value="">Bookmarks and history ({entries.length})</option>
+          {entries.map((entry) => <option key={`${entry.kind}:${entry.url}`} value={entry.url}>{entry.kind === 'bookmark' ? '★ ' : ''}{entry.title || entry.url}</option>)}
+        </select>}
+      </div>
+      <p className="browser-import-note" role="status">{importing ? 'Importing…' : importNote || 'Choose a browser profile folder. Imports bookmarks and recent history; passwords and signed-in sessions stay in the source browser.'}</p>
       <p className="browser-attach-hint">
         Drag an image’s globe handle into the website’s attachment area. Use library checkboxes to
         attach several images.

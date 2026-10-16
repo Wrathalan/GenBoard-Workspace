@@ -24,10 +24,48 @@ vi.mock('electron', () => ({
 }));
 import { CodexHarness } from '../electron/codex';
 import { shell } from 'electron';
+it('sends turns without waiting for optional capabilities and reports scoped progress timings', async () => {
+  const events: any[] = [];
+  const requests: string[] = [];
+  const rpc: any = {
+    send: vi.fn(), close: vi.fn(),
+    request: async (method: string) => {
+      requests.push(method);
+      if (method === 'account/read') return { account: { type: 'chatgpt' } };
+      // A nonresponsive optional endpoint must never block sending a message.
+      if (method === 'modelProvider/capabilities/read') return new Promise(() => {});
+      if (method === 'thread/start') return { thread: { id: 'latency-thread' } };
+      if (method === 'turn/start') return { turn: { id: 'latency-turn' } };
+      return {};
+    },
+  };
+  const h = new CodexHarness({ isDestroyed: () => false } as any, vi.fn(), () => rpc, (e) => events.push(e));
+  (h as any).executable = () => 'codex.exe';
+  const run = h.run('latency-board', 'Hello');
+  await vi.waitFor(() => expect(requests).toContain('turn/start'));
+  await run;
+  expect(requests).not.toContain('modelProvider/capabilities/read');
+  const params = { threadId: 'latency-thread', turnId: 'latency-turn', item: { type: 'reasoning' } };
+  rpc.onMessage({ method: 'item/started', params: { ...params, threadId: 'unrelated' } });
+  expect(events.some((e) => e.text === 'Codex is thinking...')).toBe(false);
+  rpc.onMessage({ method: 'item/started', params });
+  expect(events.at(-1).text).toBe('Codex is thinking...');
+  rpc.onMessage({ method: 'item/started', params: { ...params, item: { type: 'contextCompaction' } } });
+  expect(events.at(-1).text).toContain('condensing conversation');
+  rpc.onMessage({ method: 'turn/completed', params: { ...params, turn: { status: 'completed' } } });
+  await vi.waitFor(() => expect(h.busy).toBe(false));
+  const timing = events.filter((e) => e.type === 'timing').at(-1);
+  expect(timing.setupMs).toBeGreaterThanOrEqual(0);
+  expect(timing.firstActivityMs).toBeGreaterThanOrEqual(timing.setupMs);
+  expect(timing.totalMs).toBeGreaterThanOrEqual(timing.firstActivityMs);
+  h.close();
+});
+
 it('routes sign-in, tools, duplicate call IDs and interruption through app-server', async () => {
   const events: any[] = [];
   const requests: any[] = [];
   const responses: any[] = [];
+  let launchArgs: string[] = [];
   const rpc: any = {
     onMessage: () => {},
     onExit: () => {},
@@ -54,10 +92,16 @@ it('routes sign-in, tools, duplicate call IDs and interruption through app-serve
       webContents: { send: (_: string, e: any) => events.push(e) },
     } as any,
     execute,
-    () => rpc,
+    (_executable, args) => {
+      launchArgs = args;
+      return rpc;
+    },
   );
   (h as any).executable = () => 'codex.exe';
   await h.login();
+  expect(launchArgs).toContain('features.image_generation=true');
+  expect(launchArgs).toContain('features.shell_tool=false');
+  expect(launchArgs).toContain('features.unified_exec=false');
   expect(shell.openExternal).toHaveBeenCalledWith('https://auth.openai.com/authorize?test=1');
   await expect(
     h.run('board-test', 'Missing image', { images: ['missing-reference.png'] }),
@@ -92,6 +136,33 @@ it('routes sign-in, tools, duplicate call IDs and interruption through app-serve
     'imagine_workspace',
   );
   expect(requests.find((r) => r.method === 'thread/start').params.environments).toEqual([]);
+  expect(requests.find((r) => r.method === 'thread/start').params.developerInstructions).toContain(
+    'do not invent a workspace setting',
+  );
+  expect(requests.find((r) => r.method === 'thread/start').params.developerInstructions).toContain(
+    'using that wrapper to call the native image tool is allowed',
+  );
+  const skill = await fs.readFile(input.find((i: any) => i.type === 'skill').path, 'utf8');
+  expect(skill).toContain('native JavaScript tool orchestration wrapper is allowed');
+  expect(skill).toContain('Do not claim a workspace setting exists');
+  const retry = {
+    method: 'error',
+    params: {
+      threadId: 'thread-test',
+      turnId: 'turn-test',
+      willRetry: true,
+      error: { message: 'Reconnecting... 1/5' },
+    },
+  };
+  rpc.onMessage(retry);
+  expect(events.at(-1)).toEqual({ type: 'status', text: 'Reconnecting... 1/5' });
+  expect(h.busy).toBe(true);
+  const count = events.length;
+  rpc.onMessage({ ...retry, params: { ...retry.params, threadId: 'unrelated-thread' } });
+  rpc.onMessage({ ...retry, params: { ...retry.params, turnId: 'old-turn' } });
+  expect(events).toHaveLength(count);
+  rpc.onMessage({ ...retry, params: { ...retry.params, willRetry: false } });
+  expect(events.at(-1)).toEqual({ type: 'error', text: 'Reconnecting... 1/5' });
   const m = {
     id: 100,
     method: 'item/tool/call',

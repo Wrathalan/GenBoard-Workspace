@@ -46,13 +46,13 @@ export class CodexRpc {
     if (this.child.killed || !this.child.stdin.writable) throw new Error('Codex is not connected.');
     this.child.stdin.write(JSON.stringify(m) + '\n');
   }
-  request(method: string, params: unknown = {}) {
+  request(method: string, params: unknown = {}, timeoutMs = 60000) {
     const id = ++this.seq;
     return new Promise<any>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`Codex ${method} timed out; no automatic retry was made.`));
-      }, 60000);
+      }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       try {
         this.send({ id, method, params });

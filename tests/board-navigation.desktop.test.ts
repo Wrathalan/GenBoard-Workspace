@@ -58,6 +58,54 @@ test.afterEach(async () => {
   await app?.close();
 });
 
+test('pill tabs stay fixed through saves and renames; manual order persists', async () => {
+  await create('Second board');
+  await create('Third board');
+  const tabs = page.getByRole('tab');
+  const initial = await tabs.allTextContents();
+  const first = tabs.first();
+  await first.click();
+  await page.getByRole('button', { name: 'Text card', exact: true }).click();
+  await page.keyboard.press('Control+s');
+  await expect(tabs).toHaveText(initial);
+  await page.reload();
+  await expect(tabs).toHaveText(initial);
+  const dialog = await nameDialog('rename');
+  await dialog.getByRole('textbox', { name: 'Board name' }).fill('Renamed first');
+  await dialog.getByRole('button', { name: 'Save name', exact: true }).click();
+  await expect(tabs).toHaveText(['Renamed first', 'Second board', 'Third board']);
+  expect(await first.getAttribute('draggable')).toBe('false');
+  await first.focus();
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect(tabs).toHaveText(['Renamed first', 'Second board', 'Third board']);
+  await page.getByRole('button', { name: 'Manually reorder tabs', exact: true }).click();
+  await first.focus();
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect(tabs).toHaveText(['Second board', 'Renamed first', 'Third board']);
+  await tabs.first().dragTo(tabs.last());
+  await expect(tabs).toHaveText(['Renamed first', 'Third board', 'Second board']);
+  await tabs.last().dragTo(tabs.first());
+  await expect(tabs).toHaveText(['Second board', 'Renamed first', 'Third board']);
+  await page.getByRole('button', { name: 'Done reordering tabs', exact: true }).click();
+  await tabs.last().click();
+  await page.keyboard.press('Control+s');
+  await page.reload();
+  await expect(tabs).toHaveText(['Second board', 'Renamed first', 'Third board']);
+  expect(await tabs.first().evaluate((el) => getComputedStyle(el).borderRadius)).toBe('999px');
+  const ids = await page.evaluate(async () => (await window.imagine.currentProject())!.boards.map((b) => b.id));
+  const invalid = await page.evaluate(async (ids) => {
+    try { await window.imagine.reorderBoards([ids[0], ids[0], ids[2]]); return ''; }
+    catch (e) { return String(e); }
+  }, ids);
+  expect(invalid).toContain('exactly once');
+  await create('Fourth board');
+  await expect(tabs).toHaveText(['Second board', 'Renamed first', 'Third board', 'Fourth board']);
+  await app.evaluate(async (_, folder) => (globalThis as any).imagineTest.openProject(folder, false), folder);
+  await page.reload();
+  await expect(tabs).toHaveText(['Second board', 'Renamed first', 'Third board', 'Fourth board']);
+  await page.screenshot({ path: 'test-results/pill-tabs.png' });
+});
+
 test('copy and paste carries selected images, notes and groups between boards with undo', async () => {
   const bytes = [
     ...(await sharp({ create: { width: 120, height: 80, channels: 3, background: '#506070' } })

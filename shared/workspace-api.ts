@@ -7,6 +7,7 @@ export function createWorkspaceAPI(
   finishClose: () => void,
 ): WorkspaceAPI {
   return {
+    saveReferences: (references) => invoke('references:save', references),
     appUpdateState: () => invoke('app-update:state'),
     checkAppUpdate: () => invoke('app-update:check'),
     downloadAppUpdate: () => invoke('app-update:download'),
@@ -32,9 +33,12 @@ export function createWorkspaceAPI(
     currentProject: () => invoke('project:current'),
     saveBoard: (board, known) => invoke('board:save', board, known),
     createBoard: (name) => invoke('board:create', name),
+    reorderBoards: (ids) => invoke('board:reorder', ids),
     createAndActivateBoard: (name) => invoke('board:create-and-activate', name),
     activateBoard: (id) => invoke('board:activate', id),
     importImages: (files) => invoke('asset:import', files),
+    browserImport: (source) => invoke('browser:import', source),
+    browserEntries: () => invoke('browser:entries'),
     browserState: () => invoke('browser:state'),
     browserNavigate: (url) => invoke('browser:navigate', url),
     browserCommand: (command) => invoke('browser:command', command),

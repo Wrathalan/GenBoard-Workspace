@@ -5,7 +5,8 @@ export type CodexEvent =
       itemId?: string;
       assetId?: string;
     }
-  | { type: 'busy'; text: string; busy: boolean };
+  | { type: 'busy'; text: string; busy: boolean }
+  | { type: 'timing'; text: string; setupMs: number; firstActivityMs?: number; totalMs?: number };
 export type CodexRunOptions = { referenceAssetIds?: string[]; position?: { x: number; y: number } };
 export type WorkspaceToolCall = {
   id: string;

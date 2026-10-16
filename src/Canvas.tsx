@@ -187,6 +187,7 @@ export function Canvas({
   const [capturing, setCapturing] = useState(false);
   const [captureMessage, setCaptureMessage] = useState('');
   const board = useWorkspace((s) => s.board);
+  const projectFolder = useWorkspace((s) => s.project?.folder);
   useEffect(() => {
     setRevealed(false);
     setCaptureMessage('');
@@ -608,7 +609,7 @@ export function Canvas({
       </ReactFlow>
       {board && (
         <>
-          <ReferenceTray key={board.id} inspect={inspect} />
+          <ReferenceTray key={projectFolder} inspect={inspect} />
           <div className="spoiler-controls">
             <button
               aria-pressed={revealed}

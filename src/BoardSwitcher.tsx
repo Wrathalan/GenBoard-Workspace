@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronDown, Frame, Pencil, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, Frame, GripHorizontal, Pencil, Plus, Search } from 'lucide-react';
 import type { Board } from '../shared/types';
 
 export function BoardSwitcher({
@@ -10,6 +10,7 @@ export function BoardSwitcher({
   error,
   previous,
   choose,
+  reorder,
   nameBoard,
 }: {
   boards: Board[];
@@ -19,11 +20,23 @@ export function BoardSwitcher({
   error: string;
   previous?: Board;
   choose: (id: string) => Promise<boolean>;
+  reorder: (ids: string[]) => Promise<boolean>;
   nameBoard: (mode: 'create' | 'rename') => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  const [reordering, setReordering] = useState(false);
+  const dragged = useRef<string | null>(null);
+  const moveTab = async (id: string, target: number) => {
+    if (!reordering || busy || blocked || target < 0 || target >= boards.length) return;
+    const ids = boards.map((b) => b.id);
+    const from = ids.indexOf(id);
+    if (from < 0 || from === target) return;
+    ids.splice(from, 1);
+    ids.splice(target, 0, id);
+    await reorder(ids);
+  };
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -115,10 +128,19 @@ export function BoardSwitcher({
       </button>
       <div
         ref={tabs}
-        className="board-tabs"
+        className={`board-tabs${reordering ? ' reordering' : ''}`}
         role="tablist"
         aria-label="Boards"
         onKeyDown={(event) => {
+          if (event.key === 'Escape' && reordering) {
+            event.preventDefault(); event.stopPropagation(); setReordering(false); return;
+          }
+          if (reordering && event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            event.preventDefault(); event.stopPropagation();
+            const id = (event.target as HTMLElement).closest('[role="tab"]')?.getAttribute('data-board-id');
+            if (id) void moveTab(id, boards.findIndex((b) => b.id === id) + (event.key === 'ArrowRight' ? 1 : -1));
+            return;
+          }
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault();
           event.stopPropagation();
@@ -143,28 +165,58 @@ export function BoardSwitcher({
               id={`board-tab-${item.id}`}
               role="tab"
               className="board-tab"
+              data-board-id={item.id}
+              draggable={reordering && !busy && !blocked}
+              onDragStart={(event) => {
+                if (!reordering || busy || blocked) { event.preventDefault(); return; }
+                dragged.current = item.id;
+                event.dataTransfer.setData('application/x-weave-board-tab', item.id);
+                event.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(event) => {
+                if (reordering && dragged.current && !busy && !blocked) {
+                  event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+                }
+              }}
+              onDrop={(event) => {
+                if (!reordering || !dragged.current) return;
+                event.preventDefault();
+                void moveTab(dragged.current, boards.findIndex((b) => b.id === item.id));
+                dragged.current = null;
+              }}
+              onDragEnd={() => { dragged.current = null; }}
               aria-selected={current}
               aria-controls="board-canvas"
               aria-disabled={busy || !!blocked}
               tabIndex={current ? 0 : -1}
-              title={blocked || `${label}${current ? ' — Double-click to rename' : ''}`}
+              title={blocked || (reordering ? `${label} — Drag or use Alt+Left/Right to reorder` : `${label}${current ? ' — Double-click to rename' : ''}`)}
               onClick={async () => {
-                if (busy || blocked) return;
+                if (busy || blocked || reordering) return;
                 if (await choose(item.id)) {
                   setOpen(false);
                   document.getElementById(`board-tab-${item.id}`)?.focus({ preventScroll: true });
                 }
               }}
               onDoubleClick={() => {
-                if (current && !busy) nameBoard('rename');
+                if (current && !busy && !reordering) nameBoard('rename');
               }}
             >
-              <Frame size={13} aria-hidden="true" />
+              {reordering ? <GripHorizontal size={13} aria-hidden="true" /> : <Frame size={13} aria-hidden="true" />}
               <span>{label}</span>
             </button>
           );
         })}
       </div>
+      <button
+        className="board-reorder-toggle"
+        aria-label={reordering ? 'Done reordering tabs' : 'Manually reorder tabs'}
+        aria-pressed={reordering}
+        title={reordering ? 'Drag tabs or use Alt+Left/Right. Click to finish.' : 'Manually reorder tabs'}
+        disabled={busy || !!blocked || boards.length < 2}
+        onClick={() => { setReordering(!reordering); dragged.current = null; }}
+      >
+        {reordering ? <Check size={15} /> : <GripHorizontal size={15} />}
+      </button>
       <button
         className="board-tab-add"
         aria-label="Add board tab"

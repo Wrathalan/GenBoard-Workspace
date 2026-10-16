@@ -3,7 +3,8 @@ import sharp from 'sharp';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import type { Asset, Board, Job, Project, Template, Library } from '../shared/types';
+import type { Asset, Board, Job, Project, Template, Library, ReferenceObject } from '../shared/types';
+import { migrateReferences, validateReferences } from '../shared/reference-tray';
 import { emptyLibrary, validateLibrary } from '../shared/library';
 import { builtinTemplates, parseWorkflow } from '../shared/workflow';
 
@@ -71,6 +72,8 @@ export class ProjectStore {
           this.setting('activeBoardId', b.id);
           builtinTemplates().forEach((t) => this.put('templates', t));
         })();
+      if (!this.getSetting('boardOrder'))
+        this.setting('boardOrder', JSON.stringify(this.list<Board>('boards').map((b) => b.id)));
     } catch (e) {
       this.db!?.close();
       fs.unlinkSync(this.lock);
@@ -87,23 +90,36 @@ export class ProjectStore {
     this.db.prepare('INSERT OR REPLACE INTO settings VALUES (?, ?)').run(key, value);
   }
   list<T>(table: 'boards' | 'assets' | 'templates' | 'jobs'): T[] {
-    return (this.db.prepare(`SELECT json FROM ${table}`).all() as { json: string }[]).map((r) =>
+    const values = (this.db.prepare(`SELECT json FROM ${table}${table === 'boards' ? ' ORDER BY rowid' : ''}`).all() as { json: string }[]).map((r) =>
       JSON.parse(r.json),
     );
+    if (table === 'boards') {
+      const order: string[] = JSON.parse(this.getSetting('boardOrder') || '[]');
+      const ranks = new Map(order.map((id, index) => [id, index]));
+      values.sort((a, b) => (ranks.get(a.id) ?? order.length) - (ranks.get(b.id) ?? order.length));
+    }
+    return values;
   }
   put(table: 'boards' | 'assets' | 'templates' | 'jobs', value: { id: string }) {
     this.db
-      .prepare(`INSERT OR REPLACE INTO ${table} VALUES (?, ?)`)
+      .prepare(table === 'boards'
+        ? 'INSERT INTO boards (id, json) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json'
+        : `INSERT OR REPLACE INTO ${table} VALUES (?, ?)`)
       .run(value.id, JSON.stringify(value));
   }
   snapshot(): Project {
+    const boards = this.list<Board>('boards');
+    const assets = this.list<Asset>('assets');
+    if (this.getSetting('references') === undefined)
+      this.setting('references', JSON.stringify(migrateReferences(boards, assets)));
     return {
+      references: JSON.parse(this.getSetting('references')!),
       library: JSON.parse(this.getSetting('library') || JSON.stringify(emptyLibrary())),
       name: this.getSetting('name')!,
       folder: this.folder,
-      boards: this.list('boards'),
+      boards,
       activeBoardId: this.getSetting('activeBoardId')!,
-      assets: this.list('assets'),
+      assets,
       templates: this.list('templates'),
       jobs: this.list('jobs'),
       style: this.getSetting('style') || '',
@@ -114,6 +130,9 @@ export class ProjectStore {
       'library',
       JSON.stringify(validateLibrary(library, this.list<Asset>('assets').map((a) => a.id))),
     );
+  }
+  saveReferences(references: ReferenceObject[]) {
+    this.setting('references', JSON.stringify(validateReferences(references, this.list<Asset>('assets'))));
   }
   createAndActivateBoard(name: string): Project {
     return this.db.transaction(() => {
@@ -130,7 +149,18 @@ export class ProjectStore {
       viewport: { x: 0, y: 0, zoom: 1 },
     };
     this.put('boards', board);
+    this.setting('boardOrder', JSON.stringify(this.list<Board>('boards').map((b) => b.id)));
     return board;
+  }
+  reorderBoards(ids: string[]): Project {
+    return this.db.transaction(() => {
+      const current = this.list<Board>('boards').map((b) => b.id);
+      if (!Array.isArray(ids) || ids.length !== current.length || new Set(ids).size !== current.length ||
+        ids.some((id) => typeof id !== 'string' || !current.includes(id)))
+        throw new Error('Tab order must contain each current board exactly once.');
+      this.setting('boardOrder', JSON.stringify(ids));
+      return this.snapshot();
+    })();
   }
   saveBoard(
     board: Board,

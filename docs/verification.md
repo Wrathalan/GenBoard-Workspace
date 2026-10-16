@@ -1,3 +1,27 @@
+# Weave 0.4.3 release verification — 2026-10-16
+
+Production build and all 80 unit tests passed. All 45 Electron desktop scenarios passed across the full suite (44 passed) and a focused rerun of the 16-reference attachment scenario. That fixture was updated to return an account from account/read after the send path stopped calling the optional provider-capability check. Browser transport integration passed.
+
+New coverage verifies saved panel widths, native browser bounds after pointer and keyboard resizing, complementary waiting/reply colors, batched stream preservation, response timing, Chrome and Firefox bookmark/history database imports, stable pill-tab order across saves/renames/switching/project reopening, explicit drag/keyboard reordering, and invalid-order rejection.
+
+The packaged Windows x64 executable passed scripts/smoke.mjs, including native SQLite and Sharp, project persistence, canvas interactions, themes, sensitive captures, and clean shutdown. The installer is release/Weave.Setup.0.4.3.exe (135,288,926 bytes), SHA-256 1af1780d4d080ebed6f2b95487621b2e48b8eddd7962ac522ffe4c21a9dc0ae6. The blockmap is present, latest.yml version/size/SHA-512 match the installer, and SHA256SUMS.txt was generated. Regression screenshots were restored instead of committing synthetic test output.
+
+The installer remains unsigned. Real installed-version updating, live image generation, and model inference speed were not measured. GitHub release CI uses Node.js 24, matching the documented development runtime and native SQLite fixture requirements.
+
+# Codex reconnect and imagegen fixes
+
+App-server error notifications with `willRetry: true` now remain progress updates instead of pausing the queue. Terminal errors and image import/generation failures still pause it. Notifications for another thread or an old turn are ignored. The footer reflects reported provider support or unknown availability rather than always claiming Imagegen is online; sign-in refreshes that status and sign-out clears it.
+
+Imagegen instructions distinguish the native JavaScript tool orchestration wrapper from forbidden operating-system scripts, require checking tool metadata before declaring the tool unavailable, and no longer suggest an unverified workspace toggle. Existing profile metadata confirms ChatGPT authentication, a nonfree plan, image-capable models, and code-mode tool routing. The instruction conflict is addressed, but the exact cause of the photographed missing-tool turn and successful live image generation remain unverified. No generation request was submitted.
+
+Production build, all 77 unit tests, and four focused Electron desktop scenarios passed. Coverage includes retry/terminal error classification, stale notifications, queue continuation, genuine failure recovery, provider status, and preservation of all 16 references. The local patched installer is `output/codex-fix/Weave.Setup.0.4.2.exe` (135,282,823 bytes), SHA-256 `c169cb6d0c51f5c9d814552fb231714ee8236498eaf2c3e7ce61f94c75fda229`. The packaged executable launched and its provider-status display passed a synthetic check. This is a local build of the current workspace, including its existing pending reference-object changes; it was not published or installed. New chat is required to load the revised instructions in an existing session.
+
+# Shared reference objects — 2026-10-10
+
+Moved the reference tray into a project-wide collection of named objects with editable details. Older per-board image lists migrate into a deduplicated shared collection when the project opens, keeping Character, Attire, and Environment categories. The selected category stays active across board switches. Spacious list rows show a larger preview, object name, image dimensions, source filename, and saved notes.
+
+Production build and all 77 unit tests passed, including legacy reference migration and validation. Five board-navigation desktop scenarios passed; the reference-object desktop scenario verified names/details across board creation, switching, and reload, shared removal, fixed viewport placement, and remembered collapse state. Browser integration passed with shared reference saving, invalid-image rejection, board switching, and restart persistence. The object-list screenshot was visually inspected.
+
 # Weave 0.4.2 release verification — 2026-10-08
 
 Version metadata, changelog, README, and `docs/releases/0.4.2.md` are aligned for this patch. The reference tray is anchored at the top left inside the workspace viewport, separate from board nodes, with Character, Attire, and Environment categories saved per board. It supports import/drop, copying selected images, previews, removal, Codex reference drags, keyboard tab navigation, remembered collapse state, and exclusion from safe screenshots.

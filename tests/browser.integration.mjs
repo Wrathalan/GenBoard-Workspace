@@ -127,6 +127,10 @@ try {
     characters: [{ id: 'hero', name: 'Hero', description: 'Blue coat', assetIds: [assets[0].id] }],
   };
   await call('library:save', library);
+  const references = [{ id: 'shared-hero', category: 'character', assetId: assets[0].id,
+    name: 'Hero', details: 'Blue coat and amber eyes' }];
+  await call('references:save', references);
+  await assert.rejects(call('references:save', [{ ...references[0], assetId: 'missing' }]), /References need/);
   await assert.rejects(call('library:save', { ...library, folders: [{ id: 'cast', name: 'Cast', parentId: 'cast' }] }), /hierarchy/);
   const original = await fetch(url + 'media/' + assets[0].id + '/original', {
     headers: { Cookie: cookie },
@@ -152,6 +156,7 @@ try {
   const navigated = await call('board:create-and-activate', '  Browser board  ');
   assert.equal(navigated.boards.length, 2);
   assert.equal(navigated.boards.find(b => b.id === navigated.activeBoardId).name, 'Browser board');
+  assert.deepEqual(navigated.references, references);
   await call('board:activate', board.id);
   assert.ok(recents.some((item) => item.folder.toLowerCase() === projectFolder.toLowerCase()));
   await assert.rejects(call('unknown:action'), /Unknown workspace action/);
@@ -164,6 +169,7 @@ try {
   assert.equal(reopened.boards[0].items[0].data.text, 'Saved through the browser bridge');
   assert.equal(reopened.assets.length, 1);
   assert.deepEqual(reopened.library, library);
+  assert.deepEqual(reopened.references, references);
   console.log(
     'Browser integration passed: ComfyUI hostname connection, board navigation and validation, project create/save/reopen, folders and characters, binary import, image serving, recents, and RPC errors.',
   );

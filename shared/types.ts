@@ -23,6 +23,13 @@ export type CanvasItem = {
   parentId?: string;
 };
 export type ReferenceCategory = 'character' | 'attire' | 'environment';
+export type ReferenceObject = {
+  id: string;
+  category: ReferenceCategory;
+  assetId: string;
+  name: string;
+  details: string;
+};
 export type Board = {
   id: string;
   name: string;
@@ -83,6 +90,7 @@ export type Job = {
   templateSnapshot?: Template;
 };
 export type Project = {
+  references?: ReferenceObject[];
   library?: Library;
   name: string;
   folder: string;
@@ -134,6 +142,7 @@ export type RecentProject = {
   missing: boolean;
 };
 export interface WorkspaceAPI {
+  saveReferences(references: ReferenceObject[]): Promise<void>;
   appUpdateState(): Promise<import('./app-update').AppUpdateState>;
   checkAppUpdate(): Promise<import('./app-update').AppUpdateState>;
   downloadAppUpdate(): Promise<import('./app-update').AppUpdateState>;
@@ -162,11 +171,14 @@ export interface WorkspaceAPI {
   currentProject(): Promise<Project | null>;
   saveBoard(board: Board, knownManagedIds?: string[]): Promise<void>;
   createBoard(name: string): Promise<Board>;
+  reorderBoards(ids: string[]): Promise<Project>;
   createAndActivateBoard(name: string): Promise<Project>;
   activateBoard(id: string): Promise<void>;
   importImages(files?: { name: string; bytes: Uint8Array }[]): Promise<Asset[]>;
   startAssetDrag?(ids: string[]): void;
   onAssetDragError?(callback: (message: string) => void): () => void;
+  browserImport(source: 'chrome' | 'firefox'): Promise<import('./embedded-browser').BrowserImportResult | null>;
+  browserEntries(): Promise<import('./embedded-browser').BrowserEntry[]>;
   browserState(): Promise<import('./embedded-browser').EmbeddedBrowserState>;
   browserNavigate(url: string): Promise<void>;
   browserCommand(command: 'back' | 'forward' | 'reload' | 'stop'): Promise<void>;

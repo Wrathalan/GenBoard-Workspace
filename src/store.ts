@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { sensitiveIds } from '../shared/spoilers';
 import { boardName } from '../shared/board-navigation';
 import { folderContents, toggleFolder } from '../shared/board-folders';
-import type { Asset, Board, CanvasItem, Project, ReferenceCategory, Viewport, WorkspaceAPI } from '../shared/types';
+import type { Asset, Board, CanvasItem, Project, ReferenceCategory, ReferenceObject, Viewport, WorkspaceAPI } from '../shared/types';
 import { absolutePosition, duplicateItems, History } from '../shared/board';
 declare global {
   interface Window {
@@ -14,12 +14,14 @@ const history = new History<CanvasItem[]>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 let saves = Promise.resolve();
 let dirty = false;
+let referencesDirty = false;
 let pendingSaves = 0;
 export const hasUnsavedChanges = () => dirty || pendingSaves > 0;
 type State = {
   project: Project | null;
   board: Board | null;
   selected: string[];
+  referenceCategory: ReferenceCategory;
   error: string;
   saveStatus: string;
   canUndo: boolean;
@@ -37,7 +39,8 @@ type State = {
   viewport: (v: Viewport) => void;
   addAssets: (assets: Asset[], position: { x: number; y: number }) => void;
   addReferences: (category: ReferenceCategory, assets: Asset[]) => void;
-  removeReference: (category: ReferenceCategory, id: string) => void;
+  removeReference: (id: string) => void;
+  editReference: (id: string, details: Pick<ReferenceObject, 'name' | 'details'>) => void;
   undo: () => void;
   redo: () => void;
   remove: () => void;
@@ -53,6 +56,7 @@ export const useWorkspace = create<State>((set, get) => ({
   project: null,
   board: null,
   selected: [],
+  referenceCategory: 'character',
   error: '',
   saveStatus: 'Local only',
   canUndo: false,
@@ -78,7 +82,9 @@ export const useWorkspace = create<State>((set, get) => ({
     history.past = [];
     history.future = [];
     dirty = false;
+    referencesDirty = false;
     set({
+      referenceCategory: get().project?.folder === p.folder ? get().referenceCategory : 'character',
       project: p,
       board: p.boards.find((b) => b.id === p.activeBoardId) || p.boards[0],
       selected: [],
@@ -104,7 +110,7 @@ export const useWorkspace = create<State>((set, get) => ({
     const items = board.items.filter((i) => !(i.type === 'job' && !serverIds.has(i.id)));
     for (const item of server.items)
       if (!items.some((i) => i.id === item.id) && !previous.has(item.id)) items.push(item);
-    set({ project: { ...p, style: old.style }, board: { ...board, items } });
+    set({ project: { ...p, style: old.style, references: old.references }, board: { ...board, items } });
   },
   select: (selected) => set({ selected }),
   checkpoint: () => {
@@ -155,20 +161,31 @@ export const useWorkspace = create<State>((set, get) => ({
     get().change([...s.board.items, ...added]);
   },
   addReferences: (category, assets) => {
-    const { board, project } = get();
-    if (!board || !project || !assets.length) return;
+    const { project } = get();
+    if (!project || !assets.length) return;
+    const references = [...(project.references || [])];
+    for (const asset of assets) {
+      if (!references.some((r) => r.category === category && r.assetId === asset.id))
+        references.push({ id: crypto.randomUUID(), category, assetId: asset.id, name: asset.name.slice(0, 200), details: '' });
+    }
     set({
-      project: { ...project, assets: [...new Map([...project.assets, ...assets].map((a) => [a.id, a])).values()] },
-      board: { ...board, references: { ...board.references,
-        [category]: [...new Set([...(board.references?.[category] || []), ...assets.map((a) => a.id)])] } },
+      project: { ...project, references, assets: [...new Map([...project.assets, ...assets].map((a) => [a.id, a])).values()] },
     });
+    referencesDirty = true;
     scheduleSave();
   },
-  removeReference: (category, id) => {
-    const board = get().board;
-    if (!board) return;
-    set({ board: { ...board, references: { ...board.references,
-      [category]: (board.references?.[category] || []).filter((a) => a !== id) } } });
+  removeReference: (id) => {
+    const project = get().project;
+    if (!project) return;
+    set({ project: { ...project, references: (project.references || []).filter((r) => r.id !== id) } });
+    referencesDirty = true;
+    scheduleSave();
+  },
+  editReference: (id, fields) => {
+    const project = get().project;
+    if (!project) return;
+    set({ project: { ...project, references: (project.references || []).map((r) => r.id === id ? { ...r, ...fields } : r) } });
+    referencesDirty = true;
     scheduleSave();
   },
   undo: () => {
@@ -363,6 +380,8 @@ export async function flush() {
   const board = useWorkspace.getState().board;
   if (board && dirty) {
     const snapshot = structuredClone(board);
+    const referenceSnapshot = referencesDirty ? structuredClone(useWorkspace.getState().project?.references || []) : null;
+    referencesDirty = false;
     const known =
       useWorkspace
         .getState()
@@ -373,8 +392,12 @@ export async function flush() {
     pendingSaves++;
     saves = saves
       .catch(() => {})
-      .then(() => window.imagine.saveBoard(snapshot, known))
+      .then(async () => {
+        if (referenceSnapshot) await window.imagine.saveReferences(referenceSnapshot);
+        await window.imagine.saveBoard(snapshot, known);
+      })
       .catch((e) => {
+        if (referenceSnapshot) referencesDirty = true;
         dirty = true;
         fail(e);
         throw e;

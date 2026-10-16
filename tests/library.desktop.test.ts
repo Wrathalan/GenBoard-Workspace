@@ -209,6 +209,54 @@ test('a reply after generation failure runs first and resumes pending tasks only
   expect((await runs()).at(-1)).toBe('Pending two');
 });
 
+test('retry progress does not pause queued tasks, and imagegen status reflects provider support', async () => {
+  await expect(page.getByLabel('Imagegen availability')).toContainText('has not been confirmed');
+  await app.evaluate(() => {
+    const codex = (globalThis as any).imagineTest.getCodex();
+    (globalThis as any).testRuns = [];
+    codex.status = async () => ({
+      signedIn: true,
+      label: 'Synthetic provider',
+      imageGeneration: false,
+    });
+    codex.run = async (_board: string, text: string) => {
+      (globalThis as any).testRuns.push(text);
+    };
+  });
+  await page.getByRole('button', { name: 'Connect / refresh', exact: true }).click();
+  await expect(page.getByLabel('Imagegen availability')).toContainText(
+    'unavailable from this provider',
+  );
+  await page.getByLabel('Codex request').fill('First');
+  await page.getByLabel('Codex request').press('Enter');
+  await expect(page.getByRole('button', { name: 'Queue task', exact: true })).toBeVisible();
+  await page.getByLabel('Codex request').fill('Second');
+  await page.getByLabel('Codex request').press('Enter');
+  await app.evaluate(() =>
+    (globalThis as any).imagineTest.getCodex().emit('status', 'Reconnecting… 1/5'),
+  );
+  await expect(page.locator('.chat-status')).toContainText('Reconnecting');
+  await expect(page.getByRole('button', { name: 'Resume queue' })).toHaveCount(0);
+  await app.evaluate(() => (globalThis as any).imagineTest.getCodex().emit('done', 'completed'));
+  await expect
+    .poll(() => app.evaluate(() => (globalThis as any).testRuns))
+    .toEqual(['First', 'Second']);
+  await app.evaluate(() => {
+    const codex = (globalThis as any).imagineTest.getCodex();
+    codex.emit('done', 'completed');
+    codex.status = async () => ({
+      signedIn: true,
+      label: 'Synthetic provider',
+      imageGeneration: true,
+    });
+  });
+  await page.getByLabel('Chat settings').click();
+  await page.getByRole('button', { name: 'Connect / refresh', exact: true }).click();
+  await expect(page.getByLabel('Imagegen availability')).toContainText(
+    'supported by this provider',
+  );
+});
+
 test('16 references cross the real Codex handoff as images; overflow remains editable', async () => {
   const originals: number[][] = [];
   for (let index = 0; index < 17; index++)
@@ -251,6 +299,7 @@ test('16 references cross the real Codex handoff as images; overflow remains edi
       codex.rpc = {
         request: async (method: string, params: unknown) => {
           (globalThis as any).attachmentRequests.push({ method, params });
+          if (method === 'account/read') return { account: { type: 'chatgpt' } };
           return method === 'thread/start'
             ? { thread: { id: 'attachment-thread' } }
             : { turn: { id: 'attachment-turn' } };

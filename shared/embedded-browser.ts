@@ -1,3 +1,5 @@
+export type BrowserEntry = { url: string; title: string; kind: 'bookmark' | 'history' };
+export type BrowserImportResult = { entries: BrowserEntry[]; warnings: string[] };
 export type BrowserBounds = { x: number; y: number; width: number; height: number };
 export type EmbeddedBrowserState = {
   url: string;

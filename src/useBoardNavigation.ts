@@ -41,7 +41,7 @@ export function useBoardNavigation(openingProject: boolean) {
   }, [project?.folder]);
   const blocked = codexBusy ? BOARD_SWITCH_BLOCKED : !busyKnown ? 'Checking board navigation…' : '';
 
-  async function run(action: { id: string } | { name: string } | { rename: string }) {
+  async function run(action: { id: string } | { name: string } | { rename: string } | { order: string[] }) {
     const state = useWorkspace.getState();
     if (!state.project || !state.board || transition.current || openingProject) return false;
     if (!('rename' in action) && (state.codexBusy || !busyKnown)) {
@@ -53,7 +53,11 @@ export function useBoardNavigation(openingProject: boolean) {
     useWorkspace.setState({ navigationPending: true });
     setError('');
     try {
-      if ('rename' in action) {
+      if ('order' in action) {
+        await flush();
+        const p = await window.imagine.reorderBoards(action.order);
+        useWorkspace.getState().update(p);
+      } else if ('rename' in action) {
         state.renameBoard(boardName(action.rename));
         await flush();
       } else {
@@ -95,5 +99,6 @@ export function useBoardNavigation(openingProject: boolean) {
     choose: (id: string) => run({ id }),
     create: (name: string) => run({ name }),
     rename: (name: string) => run({ rename: name }),
+    reorder: (order: string[]) => run({ order }),
   };
 }

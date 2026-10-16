@@ -6,7 +6,7 @@ import sharp from 'sharp';
 let app: ElectronApplication;
 test.afterEach(async () => { await app?.close(); });
 
-test('reference tray stays in viewport and saves separate categories without board items', async () => {
+test('reference objects persist across boards with editable details and fixed viewport placement', async () => {
   const folder = path.resolve('.test-data', `reference-tray-${Date.now()}`);
   await fs.mkdir(folder, { recursive: true });
   const env = Object.fromEntries(Object.entries({ ...process.env, IMAGINE_TEST: '1' })
@@ -30,15 +30,34 @@ test('reference tray stays in viewport and saves separate categories without boa
     }, image);
     await expect(tray.getByRole('button', { name: 'Preview reference.png', exact: true })).toBeVisible();
     await expect.poll(async () => (await page.evaluate(() => window.imagine.currentProject()))!
-      .boards[0].references).not.toBeUndefined();
+      .references?.length).toBeGreaterThan(0);
   };
   await drop();
   await tray.getByRole('tab', { name: 'Attire', exact: true }).click();
   await expect(tray.getByRole('button', { name: 'Preview reference.png', exact: true })).toHaveCount(0);
   await drop();
   await expect.poll(async () => (await page.evaluate(() => window.imagine.currentProject()))!
-    .boards[0].references?.attire?.length).toBe(1);
+    .references?.filter((r) => r.category === 'attire').length).toBe(1);
+  await tray.getByRole('button', { name: 'Edit details', exact: true }).click();
+  await tray.getByLabel('Reference name', { exact: true }).fill('Crimson travel coat');
+  await tray.getByLabel('Reference details', { exact: true }).fill('Red wool, brass clasps, fitted waist.');
+  await tray.getByRole('button', { name: 'Save details', exact: true }).click();
+  await expect.poll(async () => (await page.evaluate(() => window.imagine.currentProject()))!
+    .references?.find((r) => r.category === 'attire')?.details).toBe('Red wool, brass clasps, fitted waist.');
+  await page.getByRole('button', { name: 'Add board tab', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'New board', exact: true });
+  await dialog.getByRole('textbox').fill('Second board');
+  await dialog.getByRole('button', { name: 'Create board', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Second board', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(tray.getByRole('tab', { name: 'Attire', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(tray).toContainText('Crimson travel coat');
+  await expect(tray).toContainText('Red wool, brass clasps, fitted waist.');
+  await page.screenshot({ path: 'test-results/reference-tray-objects.png' });
   await page.reload();
+  await tray.getByRole('tab', { name: 'Attire', exact: true }).click();
+  await expect(tray).toContainText('Crimson travel coat');
+  await expect(tray).toContainText('Red wool, brass clasps, fitted waist.');
+  await tray.getByRole('tab', { name: 'Character', exact: true }).click();
   await expect(tray.getByRole('button', { name: 'Preview reference.png', exact: true })).toBeVisible();
   await tray.getByRole('tab', { name: 'Attire', exact: true }).click();
   await expect(tray.getByRole('button', { name: 'Preview reference.png', exact: true })).toBeVisible();
@@ -49,7 +68,7 @@ test('reference tray stays in viewport and saves separate categories without boa
   expect(before.x - canvas.x).toBe(12);
   expect(before.y - canvas.y).toBe(12);
   const project = (await page.evaluate(() => window.imagine.currentProject()))!;
-  expect(project.boards[0].items).toHaveLength(0);
+  expect(project.boards.every((b) => b.items.length === 0)).toBe(true);
   await page.mouse.move(canvas.x + canvas.width - 100, canvas.y + canvas.height - 150);
   await page.mouse.down({ button: 'middle' });
   await page.mouse.move(canvas.x + canvas.width - 200, canvas.y + canvas.height - 200, { steps: 5 });
@@ -58,7 +77,10 @@ test('reference tray stays in viewport and saves separate categories without boa
   await tray.getByRole('tab', { name: 'Attire', exact: true }).click();
   await tray.getByRole('button', { name: 'Remove reference.png from Attire references', exact: true }).click();
   await expect.poll(async () => (await page.evaluate(() => window.imagine.currentProject()))!
-    .boards[0].references?.attire).toEqual([]);
+    .references?.filter((r) => r.category === 'attire')).toEqual([]);
+  await page.getByRole('tab', { name: 'Untitled board', exact: true }).click();
+  await expect(tray.getByRole('tab', { name: 'Attire', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(tray.getByRole('button', { name: 'Preview reference.png', exact: true })).toHaveCount(0);
   await tray.getByRole('tab', { name: 'Character', exact: true }).click();
   await expect(tray.getByRole('button', { name: 'Preview reference.png', exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/reference-tray.png' });

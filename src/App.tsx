@@ -35,6 +35,8 @@ import { UpdateNotice } from './UpdateNotice';
 import { BoardNameDialog } from './BoardNameDialog';
 import { useBoardNavigation } from './useBoardNavigation';
 import { Library } from './Library';
+import { PanelResize, panelWidth } from './PanelResize';
+import type { CSSProperties } from 'react';
 import { BrowserPanel } from './BrowserPanel';
 import { CodexPanel } from './CodexPanel';
 import { executeCanvasTool } from './codex-tools';
@@ -84,6 +86,32 @@ export function App() {
     localStorage.setItem('imagine.chatOpen', String(chatOpen));
   }, [chatOpen]);
   useEffect(() => window.imagine.onAssetDragError?.((message) => fail(message)), []);
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const [chatWidth, setChatWidth] = useState(() => panelWidth('weave.chatWidth', 390));
+  const [browserWidth, setBrowserWidth] = useState(() => panelWidth('weave.browserWidth', window.innerWidth / 2));
+  useEffect(() => {
+    const resize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+  const available = Math.max(240, viewportWidth - 160);
+  const visibleChatWidth = Math.min(chatWidth, right === 'browser' ? Math.max(240, available - 240) : available);
+  const visibleBrowserWidth = Math.min(browserWidth, Math.max(240, available - (chatOpen ? visibleChatWidth : 0)));
+  const resizePanel = (kind: 'chat' | 'browser', value: number) => {
+    const width = Math.round(Math.max(240, Math.min(available, value)));
+    (kind === 'chat' ? setChatWidth : setBrowserWidth)(width);
+    if (chatOpen && right === 'browser') {
+      const other = Math.max(240, available - width);
+      if (kind === 'browser' && chatWidth > other) {
+        setChatWidth(other);
+        try { localStorage.setItem('weave.chatWidth', String(other)); } catch {}
+      } else if (kind === 'chat' && browserWidth > other) {
+        setBrowserWidth(other);
+        try { localStorage.setItem('weave.browserWidth', String(other)); } catch {}
+      }
+    }
+    try { localStorage.setItem(`weave.${kind}Width`, String(width)); } catch { /* Session sizing still works. */ }
+  };
   const [hand, setHand] = useState(false);
   const [viewer, setViewer] = useState<string[]>([]);
   const [help, setHelp] = useState(false);
@@ -501,8 +529,11 @@ export function App() {
         : runSelectionAction(name);
   return (
     <main
+      style={{ '--chat-width': `${visibleChatWidth}px`, '--browser-width': `${visibleBrowserWidth}px` } as CSSProperties}
       className={`app-shell ${chatOpen ? 'chat-open' : ''} ${right === 'browser' ? 'browser-open' : ''}`}
     >
+      {chatOpen && <PanelResize side="left" width={visibleChatWidth} change={(v) => resizePanel('chat', v)} />}
+      {right === 'browser' && <PanelResize side="right" width={visibleBrowserWidth} change={(v) => resizePanel('browser', v)} />}
       <Appearance />
       <header className="topbar">
         <div className="top-left">
@@ -531,6 +562,7 @@ export function App() {
               error={namingBoard ? '' : navigation.error}
               previous={navigation.previous}
               choose={navigation.choose}
+              reorder={navigation.reorder}
               nameBoard={nameBoard}
             />
           ) : (
