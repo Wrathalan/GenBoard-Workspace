@@ -1,3 +1,9 @@
+# Weave 0.4.4 release verification — 2026-10-16
+
+The application code matches the locally verified 0.4.3 candidate: 80 unit tests, all 45 desktop scenarios across the full run and the corrected fixture rerun, browser transport, and packaged smoke passed. The 0.4.3 GitHub run exposed three existing viewport assumptions: the save label is intentionally hidden below 1100 pixels, and the context-menu test used a hard-coded fallback viewport larger than the runner screen. The assertions now check saved state without requiring that responsive label to be visible, and derive corner-click coordinates from the actual window. All three corrected scenarios passed locally. The 0.4.3 candidate stays unpublished; 0.4.4 supersedes it without changing that tag.
+
+The 0.4.4 production build and packaged executable smoke passed. Installer: Weave.Setup.0.4.4.exe, 135,288,843 bytes; SHA-256 dc1a8161a0d943ada90f53c5212d8d3a964a44dab866d07f23dca912e0203f6d. Blockmap present; updater manifest version, size, and SHA-512 verified; SHA256SUMS.txt generated. The installer is unsigned. Live image generation, real installed-version updating, and model inference speed remain unmeasured.
+
 # Weave 0.4.3 release verification — 2026-10-16
 
 Production build and all 80 unit tests passed. All 45 Electron desktop scenarios passed across the full suite (44 passed) and a focused rerun of the 16-reference attachment scenario. That fixture was updated to return an account from account/read after the send path stopped calling the optional provider-capability check. Browser transport integration passed.

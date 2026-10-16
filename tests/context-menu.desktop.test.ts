@@ -103,7 +103,7 @@ test('canvas creation anchors, right-drag, edge placement, keyboard and selectio
   const after = (await page.evaluate(() => window.imagine.currentProject()))!.boards[0].viewport;
   expect(after.x - before.x).toBeCloseTo(90);
   expect(after.y - before.y).toBeCloseTo(60);
-  const size = page.viewportSize() || { width: 1500, height: 950 };
+  const size = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
   await right(size.width - 40, size.height - 100);
   const box = await menu().boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(size.width - 8);

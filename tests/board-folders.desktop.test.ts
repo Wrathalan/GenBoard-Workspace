@@ -66,7 +66,7 @@ test('new folder toolbar and drag-in release contents through Ungroup', async ()
   await page.getByRole('button', { name: 'New folder', exact: true }).click();
   await expect(page.locator('.folder-node')).toHaveCount(1);
   await page.keyboard.press('Control+s');
-  await expect(page.getByText('Saved locally', { exact: true })).toBeVisible();
+  await expect(page.locator('.save-status')).toHaveText('Saved locally');
   await page.evaluate(async () => {
     const project = (await window.imagine.currentProject())!;
     const board = project.boards[0];
@@ -111,7 +111,7 @@ test('folder creation, expansion, undo, naming, duplication, and reload preserve
   await page.getByLabel('Folder name', { exact: true }).fill('References');
   await page.getByLabel('Folder name', { exact: true }).press('Tab');
   await page.keyboard.press('Control+s');
-  await expect(page.getByText('Saved locally', { exact: true })).toBeVisible();
+  await expect(page.locator('.save-status')).toHaveText('Saved locally');
   await page.reload();
   await expect(page.getByRole('button', { name: 'Expand folder References', exact: true })).toBeVisible();
   await expect(page.locator('.text-node')).toHaveCount(0);
