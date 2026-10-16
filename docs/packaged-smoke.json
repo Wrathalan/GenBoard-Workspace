@@ -1,7 +1,7 @@
 {
   "passed": true,
-  "version": "0.4.4",
-  "checkedAt": "2026-10-16T18:47:38.911Z",
+  "version": "0.4.5",
+  "checkedAt": "2026-10-16T18:55:04.496Z",
   "electron": "44.3.0",
   "checks": [
     "Packaged executable launch",

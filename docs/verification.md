@@ -1,3 +1,9 @@
+# Weave 0.4.5 release verification — 2026-10-16
+
+Completes the small-screen test corrections from the unpublished 0.4.4 candidate, including the final duplicate-folder save assertion. Both affected folder scenarios now explicitly run at a 1024-pixel viewport; all three folder scenarios pass locally. No remaining desktop assertion requires the responsive Saved locally label to be visible. The application code is unchanged from the locally verified QoL candidate; only version metadata, documentation, and test corrections changed.
+
+The 0.4.5 production build and packaged executable smoke passed. Installer: Weave.Setup.0.4.5.exe, 135,288,880 bytes; SHA-256 f43fd06dcc72227715d413e3f80ce33fc2e55a18871c3aa0d5ac941f9f9c47e0. Blockmap present; updater version, size, and SHA-512 verified; checksum file generated. Earlier candidates remain unpublished and their tags are preserved. Live generation, installed-version updating, and model inference speed were not measured; the installer remains unsigned.
+
 # Weave 0.4.4 release verification — 2026-10-16
 
 The application code matches the locally verified 0.4.3 candidate: 80 unit tests, all 45 desktop scenarios across the full run and the corrected fixture rerun, browser transport, and packaged smoke passed. The 0.4.3 GitHub run exposed three existing viewport assumptions: the save label is intentionally hidden below 1100 pixels, and the context-menu test used a hard-coded fallback viewport larger than the runner screen. The assertions now check saved state without requiring that responsive label to be visible, and derive corner-click coordinates from the actual window. All three corrected scenarios passed locally. The 0.4.3 candidate stays unpublished; 0.4.4 supersedes it without changing that tag.

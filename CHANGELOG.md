@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.4 — 2026-10-16
+## 0.4.5 — 2026-10-16
 
 - Resize the Codex and workspace browser panels by dragging their inside edges. Widths are remembered.
 - Keep board tabs in a fixed order through saves, renames, switching, and reopening. Use the grip button for explicit manual reordering. Tabs now use a pill style.

@@ -63,6 +63,7 @@ test('send-to menu moves to folders, releases to canvas, and copies to another b
 });
 
 test('new folder toolbar and drag-in release contents through Ungroup', async () => {
+  await page.setViewportSize({ width: 1024, height: 740 });
   await page.getByRole('button', { name: 'New folder', exact: true }).click();
   await expect(page.locator('.folder-node')).toHaveCount(1);
   await page.keyboard.press('Control+s');
@@ -92,6 +93,7 @@ test('new folder toolbar and drag-in release contents through Ungroup', async ()
 });
 
 test('folder creation, expansion, undo, naming, duplication, and reload preserve contents', async () => {
+  await page.setViewportSize({ width: 1024, height: 740 });
   await page.getByRole('button', { name: 'Text card', exact: true }).click();
   await expect(page.locator('.text-node')).toHaveCount(1);
   await page.keyboard.press('Escape');
@@ -119,7 +121,7 @@ test('folder creation, expansion, undo, naming, duplication, and reload preserve
   await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click();
   await expect(page.locator('.folder-node')).toHaveCount(2);
   await page.keyboard.press('Control+s');
-  await expect(page.getByText('Saved locally', { exact: true })).toBeVisible();
+  await expect(page.locator('.save-status')).toHaveText('Saved locally');
   const project = (await page.evaluate(() => window.imagine.currentProject()))!;
   const items = project.boards[0].items;
   expect(items.filter((i) => i.data.folder)).toHaveLength(2);
