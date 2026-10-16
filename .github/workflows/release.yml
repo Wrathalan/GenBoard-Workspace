@@ -1,32 +1,39 @@
-name: Build Windows release
+name: Build and publish Windows release
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag matching package.json
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - name: Verify version tag
-        shell: pwsh
-        run: |
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          if ($env:GITHUB_REF_TYPE -ne 'tag' -or $env:GITHUB_REF_NAME -ne "v$version") {
-            throw 'Run this workflow on a version tag matching package.json.'
-          }
+      - name: Verify version and release notes
+        run: node scripts/release.mjs check
+      - name: Test release automation
+        run: node --test tests/release-automation.test.mjs
       - run: npm ci
       - run: npm test
       - run: npm run build
@@ -51,19 +58,13 @@ jobs:
             release/*.blockmap
             release/latest.yml
             release/SHA256SUMS.txt
-      - name: Create complete draft release
+      - name: Publish verified release
+        run: node scripts/release.mjs publish
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: |
-          $existing = gh release view $env:GITHUB_REF_NAME --json isDraft 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            if (($existing | ConvertFrom-Json).isDraft) {
-              Write-Host 'An existing draft is being prepared separately; preserving its notes and assets.'
-              exit 0
-            }
-            throw 'A published release already exists for this tag. Use a new version.'
-          }
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          gh release create $env:GITHUB_REF_NAME --verify-tag --draft --title "Weave $version" --notes-file "docs/releases/$version.md" "release/Weave.Setup.$version.exe" "release/Weave.Setup.$version.exe.blockmap" release/latest.yml release/SHA256SUMS.txt
-          if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed.' }
+  announce:
+    needs: windows
+    uses: ./.github/workflows/announce-release.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+    secrets: inherit

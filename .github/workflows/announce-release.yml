@@ -1,0 +1,46 @@
+name: Announce published release
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      DISCORD_RELEASE_WEBHOOK:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable tag to announce (recorded announcements are skipped)
+        required: true
+        type: string
+      dry_run:
+        description: Verify webhook and preview without sending a message
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: discord-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test release automation
+        run: node --test tests/release-automation.test.mjs
+      - name: Verify release and announce in Brightwater
+        run: node scripts/release.mjs discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
