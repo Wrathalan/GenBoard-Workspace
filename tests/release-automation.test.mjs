@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assetNames, validateTag, validateRelease, announcement } from '../scripts/release.mjs';
+import {
+  assetNames,
+  validateTag,
+  validateRelease,
+  announcement,
+  screenshotNames,
+} from '../scripts/release.mjs';
 const release = () => ({
   tag_name: 'v0.4.5',
   draft: false,
@@ -157,6 +163,9 @@ test('publication checks local hashes and remote digests before making draft pub
     JSON.stringify({ version: '0.4.5', packages: { '': { version: '0.4.5' } } }),
   );
   fs.writeFileSync(path.join(dir, 'docs/releases/0.4.5.md'), '# Weave 0.4.5\n- Features');
+  fs.mkdirSync(path.join(dir, 'docs/screenshots'), { recursive: true });
+  for (const name of screenshotNames)
+    fs.writeFileSync(path.join(dir, 'docs/screenshots', name), 'demo screenshot');
   const installer = Buffer.from('test installer');
   const names = assetNames('0.4.5');
   fs.writeFileSync(path.join(dir, 'release', names[0]), installer);
@@ -200,7 +209,7 @@ test('publication checks local hashes and remote digests before making draft pub
   try {
     process.chdir(dir);
     await publish('v0.4.5');
-    assert.equal(uploads, 4);
+    assert.equal(uploads, 8);
     assert.equal(published, 1);
     mismatch = true;
     await assert.rejects(publish('v0.4.5'), /Remote asset mismatch/);
@@ -209,6 +218,7 @@ test('publication checks local hashes and remote digests before making draft pub
     process.chdir(cwd);
     globalThis.fetch = originalFetch;
     process.env = originalEnv;
+    assert.ok(dir.startsWith(path.join(os.tmpdir(), 'weave-release-test-')));
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

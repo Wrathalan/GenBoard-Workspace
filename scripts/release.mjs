@@ -7,6 +7,12 @@ const guild = '1559211049905954817';
 const marker = /<!-- weave-discord-announced:(\d+) -->/;
 const repo = process.env.GITHUB_REPOSITORY || 'Wrathalan/GenBoard-Workspace';
 const digest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+export const screenshotNames = [
+  'release-workspace.png',
+  'release-codex-working.png',
+  'release-codex-ready.png',
+  'release-browser.png',
+];
 
 export function assetNames(version) {
   return [
@@ -44,6 +50,9 @@ export function announcement(release, repository = repo) {
     .trim();
   const description = notes.length > 3600 ? `${notes.slice(0, 3597)}...` : notes;
   const imageRoot = `https://raw.githubusercontent.com/${repository}/${release.tag_name}/docs/screenshots`;
+  const screenshot = (name) =>
+    release.assets.find((asset) => asset.name === name)?.browser_download_url ||
+    `${imageRoot}/${name}`;
   return {
     username: 'Weave Releases',
     allowed_mentions: { parse: [] },
@@ -54,17 +63,22 @@ export function announcement(release, repository = repo) {
         url: release.html_url,
         description,
         color: 8497244,
-        image: { url: `${imageRoot}/release-workspace.png` },
+        image: { url: screenshot('release-workspace.png') },
       },
       {
         title: 'Codex Your turn alert — demo conversation',
         color: 8497244,
-        image: { url: `${imageRoot}/release-codex-ready.png` },
+        image: { url: screenshot('release-codex-ready.png') },
       },
       {
         title: 'Browser import controls',
         color: 8497244,
-        image: { url: `${imageRoot}/release-browser.png` },
+        image: { url: screenshot('release-browser.png') },
+      },
+      {
+        title: 'Codex working alert — demo conversation',
+        color: 8497244,
+        image: { url: screenshot('release-codex-working.png') },
       },
     ],
   };
@@ -119,6 +133,9 @@ export async function publish(tag) {
     name,
     bytes: readFileSync(`release/${name}`),
   }));
+  files.push(
+    ...screenshotNames.map((name) => ({ name, bytes: readFileSync(`docs/screenshots/${name}`) })),
+  );
   const installer = files[0];
   const checksum = files[3].bytes.toString('utf8').trim();
   if (checksum !== `${digest(installer.bytes).slice(7)}  ${installer.name}`)
@@ -146,7 +163,7 @@ export async function publish(tag) {
         `${release.upload_url.split('{')[0]}?name=${encodeURIComponent(file.name)}`,
         'POST',
         file.bytes,
-        'application/octet-stream',
+        file.name.endsWith('.png') ? 'image/png' : 'application/octet-stream',
       );
     if (
       asset.state !== 'uploaded' ||
